@@ -1,0 +1,366 @@
+================================================================================
+LA NUEVA BASE DE DATOS — QUÉ SE IMPLEMENTA Y QUÉ NO
+================================================================================
+  Archivo  : docs/modelo/prototipo-bd-adaptado.txt (1200 lineas)
+  Fecha    : 2026-09-29
+  Dialecto : PostgreSQL 14 o superior
+  Fuentes  : analisis.txt (base) · docs/diseno.md (lo nuestro) ·
+             docs/comparativa-analisis-vs-diseno.txt seccion 11 (conflictos)
+
+  Nota sobre numeraciones: en este texto, "RB-xx" y "Dxx" son SIEMPRE los de
+  docs/diseno.md. Los de analisis.txt se nombran como "RB-xx de ellos" o
+  "PD-xx" porque, segun advierte la comparativa seccion 14, los dos documentos
+  reutilizan la misma numeracion con reglas distintas.
+
+================================================================================
+1. DE DÓNDE SALIÓ
+================================================================================
+  Dos documentos complementarios, no dos versiones de lo mismo:
+
+  analisis.txt = COMO SE CONSTRUYE.
+    Trae el esquema concreto: convenciones de la seccion 1, 21 tablas y 2
+    vistas (seccion 3), reglas de negocio RB-01..RB-23 (seccion 4) y una lista
+    de pendientes PD-01..PD-09 (seccion 7). Ese esquema es la BASE y se
+    conserva entero, sin recortes.
+
+  docs/diseno.md = QUÉ HACE la app.
+    Mapa de 8 pantallas (seccion 3), modelo de datos en ingles y agnostico
+    (seccion 4), reglas RB-01..RB-19 (seccion 5) y decisiones D1..D15
+    (seccion 10). Su seccion 1 declara fuera de alcance la eleccion de backend
+    y de base de datos: nunca discutio el esquema, lo dejo abierto a proposito.
+
+  La consigna fue "adaptar sin sacar lo que funciona": el esquema de ellos es
+  el piso (no se borra nada) y encima se montan las piezas que nosotros ya
+  tenemos resueltas y que a ellos les figuran como pendientes (PD-04 reset por
+  email, PD-05 bitacora de auditoria, PD-09 detalle de materias).
+
+  El mapa de choque esta en la comparativa, seccion 11: 18 conflictos. De ese
+  listado, este archivo RESUELVE varios (ver seccion 4) y deja ABIERTOS otros
+  cuatro (ver seccion 5).
+
+================================================================================
+2. LAS CONVENCIONES QUE ADOPTAMOS
+================================================================================
+  En criollo, lo que cambia respecto de nuestro modelo viejo:
+
+  · uuid como clave primaria
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(). No enteros autoincrementales:
+    no adivinan cantidades ni exponen cuantos registros hay.
+
+  · timestamptz y soft delete
+    created_at / updated_at / deleted_at con hora CON zona horaria, en toda
+    tabla. Nada se borra fisicamente: se marca deleted_at y la fila queda para
+    auditoria.
+
+  · trigger de updated_at
+    Una sola funcion trg_set_updated_at() que se engancha con CREATE TRIGGER en
+    cada tabla que tenga updated_at. Hace falta porque DEFAULT now() solo corre
+    en el INSERT: sin el trigger, updated_at quedaria congelado en el valor del
+    alta para siempre. Excepciones declaradas: las tablas junction (no tienen
+    timestamps) y aud_evento (append-only).
+
+  · indices parciales
+    idx_{tabla}_activa ON {tabla}(id) WHERE deleted_at IS NULL, y tambien los
+    UNIQUE son parciales. Ejemplo practico: uq_persona_documento es unico SOLO
+    donde deleted_at IS NULL, asi una ficha dada de baja no bloquea volver a
+    dar de alta a alguien con el mismo D.N.I.
+
+  · ON DELETE explicito en CADA foreign key, con tres usos:
+      CASCADE  -> en junctions y detalle. Si se borra es_permiso_examen, sus
+                  filas en es_permiso_inscripcion se borran solas: no significan
+                  nada sin el permiso.
+      RESTRICT -> en referencias que no se pueden perder. No se puede borrar
+                  una materia que ya tiene mesas e inscripciones cargadas:
+                  es_mesa_examen.materia_id es RESTRICT y el borrado falla.
+      SET NULL -> en referencia opcional. confirmado_por guarda QUIEN confirmo
+                  la inscripcion; si un dia se borra esa cuenta, el sello de
+                  confirmacion se conserva pero deja de apuntar a nadie, en vez
+                  de arrastrar la inscripcion con CASCADE.
+
+  · PK compuesta en las junctions
+    us_usuario_rol, us_rol_permiso, us_usuario_modulo y es_permiso_inscripcion
+    llevan PRIMARY KEY sobre las dos FK, sin id surrogate y sin timestamps: en
+    una junction la fila o existe o no.
+
+  · prefijos de area
+    pe_ personas y contacto · us_ usuarios y seguridad · es_ escolar y
+    academico · pr_ preinscripcion de la landing · aud_ auditoria. snake_case
+    singular en espanol; el prefijo del area no se repite dentro del nombre de
+    un indice ni de un check.
+
+  · varchar(n) con limite de negocio (nunca text sin tope) y COMMENT ON en las
+    columnas que no se explican solas.
+
+================================================================================
+3. LAS 21 TABLAS DE ELLOS, INTACTAS
+================================================================================
+  Bloque A (pe_) — personas y contacto:
+   1. pe_documento_tipo   tipos de documento: DNI, LC, LE, pasaporte.
+   2. pe_persona          identidad de una persona: documento, nombre, fecha,
+                          sexo, direccion, nacionalidad.
+   3. pe_contacto_tipo    tipos de contacto: email, telefono, celular.
+   4. pe_contacto         los contactos concretos de cada persona.
+
+  Bloque B (us_) — usuarios, seguridad y sesiones:
+   5. us_usuario          cuenta de acceso: username, password_hash, bloqueo,
+                          intentos fallidos, token_version.
+   6. us_rol              roles: admin y alumno.
+   7. us_permiso          permisos codificados: mesa.crear, reporte.exportar...
+   8. us_usuario_rol      que rol tiene cada usuario (junction).
+   9. us_rol_permiso      que permiso tiene cada rol (junction).
+  10. us_modulo           las 3 aplicaciones: landing, sigme_web, sigme_mobile.
+  11. us_usuario_modulo   a que modulos entra cada usuario (junction).
+  12. us_sesion           sesiones, refresh token hasheado y rotacion.
+
+  Bloque C (es_) — catalogo academico:
+  13. es_orientacion      las tecnicaturas (2 filas).
+  14. es_curso            el anio dentro de la orientacion, sin letras de
+                          division ni turno (RB-15 de ellos == nuestro D14).
+  15. es_materia          las materias; los talleres son materia normal con
+                          es_taller = true.
+  16. es_condicion        las condiciones con su limite_materias.
+  17. es_convocatoria     la campana: ventana de inscripcion y fecha de mesa.
+
+  Bloque D (es_) — mesa e inscripcion:
+  18. es_mesa_examen      la mesa: convocatoria, materia, fecha, hora, estado y
+                          las 4 columnas de snapshot de nombres.
+  19. es_mesa_inscripcion el alumno inscripto a una mesa, con su condicion.
+
+  Bloque E (pr_) — landing de preinscripcion:
+  20. pr_preinscripcion   el formulario de la landing, aislado del resto (sin
+                          FK hacia pe_ ni es_) por decision del usuario.
+  21. pr_ventana          la unica ventana de preinscripcion vigente.
+
+  2 vistas:
+   · vw_mesa_con_alumnos  solo mesas con al menos un inscripto (RB-22 de ellos).
+   · vw_ventana_vigente   la ventana de landing que contiene el dia de hoy.
+
+  Encima de esas 21, este archivo AGREGA 5 tablas nuestras (seccion 4):
+  es_alumno, es_permiso_examen, es_permiso_inscripcion, us_password_reset y
+  aud_evento. Total: 26 tablas y 2 vistas.
+
+================================================================================
+4. LO QUE SÍ SE IMPLEMENTÓ DE NUESTRO DISEÑO
+================================================================================
+  Cada punto con el mismo formato: QUE · POR QUE · de que REGLA sale · DONDE
+  esta en el SQL.
+
+C1 — es_alumno (RB-02)
+  QUE: tabla nueva que vincula una persona con UNA orientacion y su estado.
+  POR QUE: sin ella, la cascada de ellos deja elegir la tecnicatura libre y
+  nada amarra al alumno a su propia carrera; RB-02 no se puede imponer.
+  REGLA: RB-02 (solo materias de la propia tecnicatura) + D3 (sector = tecnicatura).
+  DONDE: tabla es_alumno (persona_id, orientacion_id, estado activo|baja),
+  indice uq_alumno_persona (unico y parcial) y sus comentarios.
+
+C2 — es_condicion con NUESTRAS 4 condiciones (D7) + limites ACTIVADOS
+  QUE: la tabla es de ellos con su columna limite_materias; la SEMILLA es
+  nuestra: Regular, Previa, Completar Estudio, Equivalencia. Se descarta 'Libre'
+  porque el impreso real no la trae. Limite activado el 2026-09-29:
+  Regular = 8, Previa = 3, y NULL (sin limite) para Completar Estudio y
+  Equivalencia.
+  POR QUE: cierra el PD-02 de ellos y cierra nuestra D7; los 4 valores salen
+  del formulario de la escuela, no de una lista inventada.
+  REGLA: D7 (4 condiciones) + el limite se valida SOLO al inscribirse (RB-03 y
+  RB-08c de ellos), nunca el dia de la mesa.
+  DONDE: tabla es_condicion; semilla H.3 con las 4 filas; COMMENT ON de la
+  tabla deja escrito el alcance.
+  OJO: es DISTINTO de RB-13 nuestro (maximo 6 FILAS por permiso porque el A4
+  tiene 6 renglones). RB-13 se valida aparte, al GENERAR el permiso, nunca en
+  esta tabla. Ambos se sostienen: si Regular permite 8 materias y el impreso
+  tiene 6 filas, el alumno necesita dos permisos, que es exactamente lo que
+  dice RB-13.
+
+C3 — us_usuario: email_verified_at + must_change_password
+  QUE: dos columnas agregadas a la tabla de usuarios de ellos.
+  POR QUE: sin correo verificado no hay forma de mandar el codigo de
+  recuperacion (el correo de la ficha podria estar mal o ser de otra persona);
+  y la credencial inicial necesita forzar el cambio de clave al primer ingreso.
+  REGLA: RB-07 y RB-19 (recuperar solo con correo verificado) + seccion 2 de
+  docs/diseno.md (admin/admin con cambio obligatorio).
+  DONDE: columnas us_usuario.email_verified_at y
+  us_usuario.must_change_password, con COMMENT ON en las dos.
+
+C4 — es_mesa_examen: ubicacion
+  QUE: columna nueva varchar(100) para el aula o lugar de la mesa.
+  POR QUE: existe en nuestro modelo (location) y en la comparativa figura como
+  conflicto #15 "existe en uno y no en el otro"; ademas el propio impreso
+  muestra "Materia -> Mesa [fecha, horario, lugar]".
+  REGLA: D14. Por que sigue cumpliendose: D14 dice que cada materia tiene UNA
+  sola mesa y que no hay turnos ni eleccion de mesa; agregar el lugar no
+  multiplica las mesas, solo completa la unica que existe. La unicidad sigue
+  puesta en uq_mesa_unica(materia, condicion, fecha).
+  DONDE: columna es_mesa_examen.ubicacion + su COMMENT ON.
+
+C5 — es_mesa_inscripcion: notas + confirmado_en / confirmado_por
+  QUE: tres columnas de trazabilidad sobre la inscripcion de ellos.
+  POR QUE: el panel de administracion necesita anotar el motivo de una
+  anulacion y dejar constancia de cuando y quien confirmo.
+  REGLA: nuestro enrollments (notas, confirmed_at, confirmed_by) y D1
+  (el alumno inscribe, el admin supervisa y corrige).
+  Por que NO hay tercer estado: el conflicto #10 sigue ABIERTO y se mantiene
+  'inscripto' | 'anulado' de ellos, sin etapa de aprobacion. confirmado_en y
+  confirmado_por son un SELLO de auditoria, no una etapa: no cambian el estado.
+  DONDE: columnas es_mesa_inscripcion.notas, .confirmado_en, .confirmado_por
+  (SET NULL si se borra la cuenta) y sus COMMENT ON; el CHECK del estado no se
+  toca.
+
+C6 — es_permiso_examen (los DATOS del permiso, NO el archivo: rb-09/13/14/15/18)
+  QUE: tabla que persiste los datos del Permiso de Examen emitido: condicion
+  del grupo, titulo dinamico, libro, folio, anio, quien y cuando lo emitio.
+  NO guarda el PDF.
+  POR QUE: decision del 2026-09-29 del usuario: la app genera el archivo bajo
+  demanda (tools/generar_permiso.py) y lo descarga DIRECTO AL CELULAR del
+  alumno; la BD no almacena archivos. Si algo cambiara despues, la app vuelve a
+  generar desde estos datos. Lo que queda registrado es la EMISION (anio,
+  condicion, libro/folio, fecha) — eso es lo que la escuela usa y lo que hace
+  que el conflicto #11 deje de ser un problema: ellos tampoco guardan el
+  archivo, y nosotros ademas guardamos la emision.
+  REGLA: RB-09 (generar y descargar directo al celular), RB-13 (maximo 6
+  filas, validado al generar), RB-14 (el PDF es borrador, solo vale con la
+  firma del Secretario), RB-15 (libro y folio los carga la escuela),
+  RB-18 + D6/D9 (una condicion por permiso y titulo dinamico).
+  DONDE: tabla es_permiso_examen con sus indices y los CHECK de anio y titulo
+  no vacio. DESAPARECIERON: pdf_url, checksum y el CHECK de checksum
+  (decision 2026-09-29).
+
+C7 — es_permiso_inscripcion (junction que reemplaza a enrollment_ids[])
+  QUE: tabla puente permiso <-> inscripcion, con PK compuesta.
+  POR QUE: en nuestro modelo anterior era un arreglo de ids dentro del
+  registro, que no era una FK real: no se podia impedir que un id colgara ni
+  borrar en cascada.
+  REGLA: convencion 1.9 de ellos (junction con PK compuesta) aplicada a
+  RB-18 (cada permiso agrupa sus inscripciones) y a RB-13 (contando estas
+  filas se valida el tope de 6).
+  DONDE: tabla es_permiso_inscripcion(permiso_id, inscripcion_id) con
+  ON DELETE CASCADE en las dos FK.
+
+C8 — us_password_reset (RB-19 / RB-07; cierra PD-04)
+  QUE: tabla de codigos de 6 digitos con proposito, hash, intentos, expiracion
+  y uso unico.
+  POR QUE: a ellos les figura como pregunta abierta PD-04; nosotros lo traemos
+  cerrado porque el flujo de recuperar acceso ya esta disenado y probado en el
+  prototipo (4 pasos).
+  REGLA: RB-19 (D.N.I. + correo, codigo de 6 digitos, 15 minutos, 5 intentos,
+  error generico anti-enumeracion) y RB-07 (solo con correo verificado).
+  DONDE: tabla us_password_reset; el indice uq_password_reset_activo garantiza
+  UN solo codigo activo por usuario y proposito, asi reenviar invalida al
+  anterior. Cubre dos propositos: reset_password y verify_email.
+
+C9 — aud_evento (RB-10; cierra PD-05; append-only)
+  QUE: bitacora de toda accion del admin, con actor, accion, entidad y los
+  estados antes/despues en jsonb.
+  POR QUE: PD-05 de ellos esta pendiente; nosotros lo teniamos resuelto.
+  REGLA: RB-10 (toda accion del admin queda registrada).
+  DONDE: tabla aud_evento SIN updated_at ni deleted_at y SIN trigger: es de
+  solo escritura, porque modificar o borrar una fila de auditoria anularia su
+  valor de prueba. Es la excepcion declarada junto a las junctions.
+
+C10 — Seeds (S7)
+  QUE: datos iniciales: 2 orientaciones con NOMBRE CORTO, 12 cursos (6 por
+  orientacion), 4 condiciones, 2 roles, 3 modulos.
+  POR QUE: sin esto el esquema queda vacio y no se puede probar nada; ademas
+  el conflicto #18 de nombres quedo RESUELTO el 2026-09-29.
+  Como se resolvio #18: se conserva NUESTRO nombre corto en todo (diseno,
+  data/materias.csv, impreso) y la BD es el unico lugar que se ajusto,
+  usando ese mismo nombre. Los nombres largos de analisis.txt quedan solo como
+  referencia historica; si algun dia la escuela quiere el largo impreso, se
+  cambia en una sola columna (es_orientacion.descripcion).
+  REGLA: D7 (las 4 condiciones), D10/D16 (registro libre, no se siembra nada
+  extra) y D14 (12 cursos = 6 anios x 2 orientaciones, sin letras ni turno).
+  DONDE: bloques H.1 a H.5, todos con ON CONFLICT DO NOTHING para que el
+  archivo se pueda correr mas de una vez. En H.4 NO se siembra el rol
+  'docente' (haria falta solo con el acta volante) y en H.6 quedan comentados
+  los INSERT de materias y de admin.
+
+  LOS 2 CAMBIOS DEL 2026-09-29 (los dos estan anados arriba, se listan juntos
+  para no perderlos):
+   (a) limite_materias ACTIVADO: Regular 8 / Previa 3 (C2). Cierra PD-02.
+   (b) conflicto #18 RESUELTO: nombre corto en todo, solo la BD cambio (C10).
+
+================================================================================
+5. LO QUE NO SE IMPLEMENTA (y por qué)
+================================================================================
+  · Prueba contra PostgreSQL real: POSPUESTA por el usuario. El archivo esta
+    escrito para PostgreSQL 14+ y revisado a mano, pero todavia no corrio contra
+    un servidor. Es el pendiente mas importante.
+
+  · Seed de admin/admin (PD-03): no se siembra la cuenta inicial ni los
+    permisos RBAC. La decision ya esta tomada (admin/admin con
+    must_change_password = true) pero el script semilla no esta escrito.
+
+  · Carga de las 153 materias: hecha pero COMENTADA en el bloque H.6, porque
+    se hace con \copy desde data/materias.csv hacia una tabla staging y luego
+    se mapea (tecnicatura, anio) -> (es_orientacion, es_curso). No corre dentro
+    del -f tipico.
+
+  · Validacion de RB-13 en la BD: no existe check ni columna para el maximo de
+    6 filas por permiso, porque es una regla de APLICACION (se valida al
+    generar el permiso, contando es_permiso_inscripcion). Igual RB-14: la
+    firma del Secretario es un proceso de papel.
+
+  · Acta volante y rol docente: fuera de docs/diseno.md. Por eso H.4 no siembra
+    el rol 'docente'.
+
+  · Landing pr_preinscripcion: es de ellos, se conserva intacta (es su
+    conflicto #17 y su PD-01) pero esta fuera de nuestro alcance de producto.
+
+  · Notificaciones push (PD-07): fuera de alcance desde la seccion 1 de
+    docs/diseno.md.
+
+  · Conflictos que SIGUEN ABIERTOS, no se tocaron:
+      #3  Quien crea la mesa: aqui se MANTIENE RB-20 de ellos (la crea el
+          primero en anotarse y la fecha sale de es_convocatoria.fecha_mesa),
+          no el admin ni un sistema externo.
+      #4  Ventana de inscripcion: se mantiene ELLOS, UNA por convocatoria
+          (fecha_inicio_inscripcion / fecha_fin_inscripcion), no una ventana
+          por mesa como queriamos en RB-12.
+      #10 Estados de inscripcion: se mantiene 'inscripto' | 'anulado', sin
+          nuestro tercer estado 'pendiente | confirmada'. Lo nuestro queda
+          como trazabilidad (C5).
+      #17 Alcance: 3 aplicaciones (landing + SIGME web + SIGME-M), tal como
+          ellos lo plantean.
+
+================================================================================
+6. LOS TRES PUNTOS DEL USUARIO
+================================================================================
+  1. Nombres de las tecnicaturas  -> RESUELTO.
+     Se conserva el nombre corto en todo (diseno, CSV, impreso) y la BD es el
+     unico documento que se ajusto, usando ese mismo nombre. Solo cambio la BD.
+
+  2. Limites por condicion  -> IMPLEMENTADO.
+     Segun analisis.txt: Regular 8, Previa 3, sin limite para Completar
+     Estudio y Equivalencia. Se valido con el usuario el 2026-09-29 y cierra
+     el PD-02. La validacion es solo al inscribirse (ver C2).
+
+  3. Prueba con motor real  -> POSPUESTO.
+     Falta un servidor PostgreSQL 14+ donde correr el archivo completo y
+     revisar que todo cree sin errores.
+
+================================================================================
+7. CÓMO SE CARGA
+================================================================================
+  Requisito: PostgreSQL 14 o superior (usa gen_random_uuid() nativo, indices
+  parciales, exclusiones y jsonb).
+
+      psql -f docs/modelo/prototipo-bd-adaptado.txt
+
+  El archivo esta pensado para correr de corrido: crea una funcion, 26 tablas,
+  2 vistas, los indices, los triggers y las semillas, en ese orden. Los INSERT
+  de las semillas llevan ON CONFLICT DO NOTHING, asi que volver a correrlo no
+  duplica filas. No usa transaccion unica: si algo falla a mitad de camino,
+  hay que dropear lo creado y reintentar desde cero.
+
+  Que conviene revisar el dia que haya servidor:
+   1. Que los 26 CREATE TABLE pasen sin error de tipo (especialmente los
+      CHECK y los indices parciales con clausula WHERE).
+   2. Que los 12 cursos y las 4 condiciones aparezcan con los nombres
+      esperados (H.2 y H.3).
+   3. Que uq_mesa_unica y uq_inscripcion_unica se comporten como se espera:
+      una mesa por materia/condicion/fecha y una inscripcion por
+      convocatoria/alumno/materia.
+   4. Que un INSERT con FK en RESTRICT falle a proposito (prueba de que la
+      proteccion funciona).
+   5. Recien ahi hacer el \copy de las 153 materias del bloque H.6.
+   6. Dejar anotado lo que queda por fuera de este archivo: semilla de
+      admin/admin, permisos RBAC y la validacion de RB-13 al generar permisos.

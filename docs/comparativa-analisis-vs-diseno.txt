@@ -1,0 +1,668 @@
+================================================================================
+COMPARATIVA — analisis.txt  vs  docs/diseno.md
+================================================================================
+  analisis.txt  -> "BACKEND EPET36 - ANALISIS Y DISENO (v2 corregido)"
+                   (C:\Users\Estudiante\Downloads\analisis.txt, 960 lineas)
+  diseno.md     -> "Diseno - App de Inscripcion a Mesas de Examen"
+                   (docs/diseno.md, version 3, 400 lineas)
+Fecha: 2026-09-28
+
+INDICE
+   0. Que es cada documento (lo mas importante)
+   1. Stack y tecnologia
+   2. Convenciones de esquema (nombres, claves, auditoria)
+   3. Personas y usuarios
+   4. Seguridad y autenticacion
+   5. Catalogo academico (orientacion / curso / materia)
+   6. Condiciones del alumno
+   7. Mesas de examen
+   8. Inscripciones
+   9. Permiso de examen y reportes
+  10. Coincidencias (no chocan)
+  11. Conflictos (hay que decidir uno por uno)
+  12. Pendientes de ellos que nosotros ya resolvimos
+  13. Lo que tiene uno y no el otro
+  14. ADVERTENCIA: numeracion RB duplicada
+  15. Conclusion
+
+================================================================================
+0. QUE ES CADA DOCUMENTO (lo mas importante)
+================================================================================
+No son dos versiones de lo mismo: son DOS MITADES COMPLEMENTARIAS.
+
+  analisis.txt = COMO SE CONSTRUYE el backend.
+    - Stack, esquema SQL concreto (21 tablas + 2 vistas), autenticacion,
+      endpoints, estructura de carpetas, checklist de calidad.
+    - Alcance: TRES aplicaciones
+        1. Landing page  -> preinscripcion para anotarse a la escuela
+                            el proximo ano lectivo (pr_preinscripcion)
+        2. SIGME   (web)  -> gestion de mesas, personas, usuarios, reportes
+        3. SIGME-M (movil)-> el alumno se inscribe a las mesas
+    - NO explica que ve el usuario (pantallas, flujos, permiso PDF como tal).
+
+  diseno.md = QUE HACE la app desde el punto de vista del producto.
+    - Roles, mapa de 8 pantallas, reglas de negocio RB-01..RB-19,
+      decisiones D1..D14, catalogo de 153 materias, el Permiso de Examen.
+    - Dice explicitamente en su seccion 1: "Fuera de alcance en v1:
+      eleccion de backend y base de datos (el diseno del modelo es agnostico)".
+
+Por eso: diseno.md NO contradice al otro por "no traer stack"; es que nunca
+lo quiso definir. Y analisis.txt NO contradice al nuestro por "no traer
+pantallas"; es que es un documento de backend.
+
+SIN EMBARGO, en el modelo de datos si hay decisiones que chocan de verdad
+(ver seccion 11).
+
+================================================================================
+1. STACK Y TECNOLOGIA
+================================================================================
+analisis.txt (seccion 0):
+  - Framework    : FastAPI (Python)
+  - Base de datos: PostgreSQL en Neon
+  - ORM          : SQLAlchemy 2.0 declarativo
+  - Validacion   : Pydantic v2
+  - Migraciones  : Alembic
+  - Auth         : JWT (access + refresh con rotacion)
+  - Restricciones Neon anotadas: SQLAlchemy >= 2.0.33 con pool_pre_ping,
+    migraciones por conexion DIRECTA (sin -pooler), app por conexion POOLED.
+
+diseno.md: no define stack. Deja el tema abierto a proposito.
+
+  -> DIFERENCIA DE VACIO, NO DE OPINION.
+     Ellos llenaron el hueco que nosotros dejamos pendiente.
+     Si adoptamos su stack, nuestro diseno.md solo habria que agregarle
+     una seccion "Stack" sin tocar reglas de negocio.
+
+  -> DETALLE QUE CONVENE REVISAR: SQLAlchemy/Pydantic/FastAPI son Python,
+     igual que tools/generar_permiso.py (reportlab + pypdf). El generador
+     de PDF ya escrito ENCAJA sin portes en su backend.
+
+================================================================================
+2. CONVENCIONES DE ESQUEMA (nombres, claves, auditoria)
+================================================================================
+2.1 Idioma y prefijos de tablas
+  analisis.txt seccion 1.1: OBLIGATORIO, segun el area:
+      pe_ = personas / contacto        ej: pe_persona, pe_contacto
+      us_ = usuarios / seguridad       ej: us_usuario, us_sesion
+      es_ = escolar / academico        ej: es_mesa_examen, es_materia
+      pr_ = preinscripcion (landing)   ej: pr_preinscripcion
+    Tablas en snake_case SINGULAR y en ESPANOL.
+
+  diseno.md seccion 4: "Nombres de tablas y campos en INGLES (son codigo)".
+    Tablas actuales: degrees, students, users, subjects, mesas, enrollments,
+    permits, password_resets, audit_log  -> de hecho estan MEZCLADAS
+    (subjects/permits en ingles, mesas en castellano).
+
+  -> CONFLICTO DIRECTO. Uno de los dos debe ceder.
+     Ojo: los prefijos son una norma del area escolar, no una moda tecnica.
+     Cambiarlos despues de creadas las tablas cuesta una migracion por
+     tabla renombrada.
+
+2.2 Clave primaria
+  analisis.txt 1.3: uuid DEFAULT gen_random_uuid()
+  diseno.md: id (no lo especifica; por convencion en nuestro modelo seria
+             entero autoincremental)
+
+  -> DIFERENCIA de estilo. uuid es mas seguro para exposicion publica (no
+     adivina cantidades), integer es mas comodo para legibles/URLs.
+
+2.3 Auditoria de tabla (esto SI es una carencia nuestra)
+  analisis.txt 1.4 - 1.9, todo obligatorio:
+      - created_at / updated_at / deleted_at (SOFT DELETE) en TODA tabla
+      - timestamptz (no timestamp: con zona horaria)
+      - trigger trg_set_updated_at porque DEFAULT now() solo corre en INSERT
+        (sin trigger, updated_at queda congelado para siempre)
+      - indice PARCIAL de soft delete: WHERE deleted_at IS NULL
+      - UNIQUE parcial tambien: un DNI borrado no bloquea re-insertar
+      - ON DELETE explicito en CADA FK (CASCADE / RESTRICT / SET NULL)
+      - tablas junction con PK COMPUESTA (sin id, sin timestamps)
+      - varchar(n) con limite de negocio, no text sin tope
+
+  diseno.md: solo created_at/updated_at en students; users con created_at;
+    soft delete NO existe (usa status activo|baja); ON DELETE no se define.
+
+  -> ELLOS ESTAN MAS AVANZADOS en ingenieria de datos. Es lo que hay que
+     copiar en nuestro prototipo.
+
+================================================================================
+3. PERSONAS Y USUARIOS
+================================================================================
+3.1 Modelo de datos de la persona
+  analisis.txt:
+      pe_documento_tipo  -> DNI, LC, LE, Pasaporte (tabla, con orden)
+      pe_persona         -> documento_tipo_id + documento, apellido, nombre,
+                            razon_social*, fecha_nacimiento*, sexo*,
+                            direccion*, nacionalidad*
+                            (* nullable a proposito: la landing no los pide)
+      pe_contacto_tipo   -> Email, Telefono, Celular
+      pe_contacto        -> valor + predeterminado, N contactos por persona
+      us_usuario         -> persona_id, username, email, password_hash
+
+  diseno.md:
+      students -> dni (UNICO, texto plano), first_name, last_name, phone,
+                  address, email (UNICO), email_verified_at
+      users    -> username, password_hash, role (alumno|admin)
+
+  -> DIFERENCIAS:
+     a) Separan PERSONA de USUARIO y comparten pe_persona entre la landing,
+        los alumnos y (potencialmente) docentes. Nosotros ya separamos
+        students/users pero duplicamos datos de contacto en students.
+     b) Contactos TIPADOS (N filas) vs COLUMNAS (email, phone, address).
+        Ellos pueden tener 2 correos; nosotros 1. A cambio, nosotros no
+        necesitamos 2 JOINs para mostrar el mail.
+     c) Tipo de documento (DNI/LC/LE/Pasaporte) existe alla y no aca.
+     d) NOSOTROS TENEMOS algo que ellos no: email_verified_at.
+        Sin verificacion de correo, el flujo de recuperacion RB-19
+        (DNI + correo) NO es posible. Ver 12.
+
+3.2 Alta de personas
+  analisis.txt: no hay registro libre. Las personas y usuarios se dan de
+    alta desde SIGME Web con RBAC (POST /personas, POST /usuarios).
+    La landing solo escribe preinscripciones, no crea cuentas.
+  diseno.md RB-16 + D10: REGISTRO LIBRE - cualquiera se da de alta solo,
+    un DNI = un alumno = una cuenta; verificacion de correo por codigo.
+
+  -> CONFLICTO DE FLUJO. En el prototipo nuestro el alumno se registra;
+     en el documento de ellos el alumno no aparece registrandose.
+
+================================================================================
+4. SEGURIDAD Y AUTENTICACION
+================================================================================
+analisis.txt seccion 2 (mucho mas detallado):
+  - Access JWT 15 min, RS256/ES256 con kid, claims iss/aud/exp/nbf/iat/jti/
+    sid/ver/sub; roles/permisos van DENTRO del payload.
+  - Refresh opaco de 32 bytes, 7 dias, ROTACION + REUSE DETECTION
+    (si reenvian un refresh ya usado se revoca toda la familia).
+  - En BD solo el HASH SHA-256 del refresh, nunca el token crudo.
+  - us_sesion: tabla propia por sesion (sid, familia_id, ip, user_agent,
+    expires_at, estado activo|revocado). Permite "salir en todos lados".
+  - Contraseñas: Argon2id (m=19456, t=2, p=1), minimo 12 caracteres.
+  - token_version: al cambiar clave/rol o bloquear, se sube la version y
+    todos los access tokens ya emitidos mueren (invalidacion global).
+  - Bloqueo: intentos_fallidos + bloqueado_hasta; rate limit 5 cada 15 min.
+  - RBAC: usuario -> rol -> permiso, con permisos CODIFICADOS
+    (mesa.crear, inscripcion.anular, reporte.exportar...) y asignacion
+    de modulos (landing / sigme_web / sigme_mobile).
+  - Endpoint logout-all.
+  - Landing: CORS restringido, sin "*", consentimiento Ley 25.326.
+
+  diseno.md seccion 8:
+  - "Hash de contraseñas + politicas de longitud" (RB-11: bcrypt/argon2)
+  - "Autorizacion por rol en el servidor"
+  - admin/admin con cambio obligatorio en el primer ingreso
+  - "Sesion con expiracion; cierre automatico por inactividad"
+  + RB-19: recuperacion por DNI + correo con codigo de 6 digitos
+    (15 min, 1 uso, 5 intentos -> bloqueo 15 min), error generico.
+
+  -> DIFERENCIAS:
+     a) Ellos: JWT + refresh con rotacion. Nosotros: solo "sesion con
+        expiracion". El esquema de ellos es estandar y resuelve el caso
+        "cerrar sesion en todos los dispositivos" que nosotros no planteamos.
+     b) Ellos: 3 roles + permisos granulares + modulos. Nosotros: 2 roles
+        en una columna users.role.
+     c) Ellos NO tienen tabla de reseteo de clave (PD-04 PENDIENTE).
+        Nosotros SI: password_resets con purpose (reset_password |
+        verify_email), attempts, expires_at, used_at.  -> ver seccion 12.
+     d) Su rate limit (5 / 15 min) y nuestro bloqueo (5 intentos / 15 min)
+        dicen lo mismo: son compatibles.
+
+================================================================================
+5. CATALOGO ACADEMICO
+================================================================================
+analisis.txt:      diseno.md:
+  es_orientacion  <->  degrees
+    (2 filas: "Tecnicatura en Tecnologia de los Alimentos",
+              "Tecnicatura en Gestion y Administracion de las
+               Organizaciones")
+  es_curso        <->  (NO existe como tabla; es subjects.year)
+    ("1er Ano", "2do Ano"... con columna anio; SIN division A/B/D/G
+     y SIN turno)
+  es_materia      <->  subjects
+    (cuelga de curso_id; codigo; descripcion; es_taller boolean)
+                    <->  (cuelga de degree_id + year; name; sin codigo;
+                         sin marca de taller)
+
+  -> DIFERENCIAS:
+     a) Ellos arman 3 niveles (orientacion -> curso -> materia); nosotros
+        2 (degrees -> subjects con year). Funcionalmente equivalente: en
+        ellos "materia" esta atada a un ano especifico, en nosotros igual
+        (subjects.year). Cambia la forma de contar: ellos 6 cursos x
+        8-10 materias = 48-60; nosotros 13-15 por ano = 153 en total.
+     b) Ellos tienen CODIGO de materia; nosotros no (el CSV no lo trae).
+     c) Ellos marcan TALLER con es_taller=true; nosotros no lo marcamos.
+        En nuestro modelo un taller seria una materia mas - mismo resultado.
+     d) NOMBRE DE LAS TECNICATURAS DISTINTO:
+        Nosotros (data/materias.csv y el PDF):  "TECNOLOGIA DE LOS ALIMENTOS"
+                                                 "GESTION ORGANIZACIONAL"
+        Ellos (es_orientacion):                  "Tecnicatura en Tecnologia
+                                                  de los Alimentos"
+                                                 "Tecnicatura en Gestion y
+                                                  Administracion de las
+                                                  Organizaciones"
+        -> hay que UNIFICAR. El texto largo es el formal de la escuela
+           (y el que probablemente convenga imprimir en el permiso);
+           el corto es el que ya usamos como dato semilla.
+
+================================================================================
+6. CONDICIONES DEL ALUMNO
+================================================================================
+ESTE ES UNO DE LOS CONFLICTOS MAS FUERTES, porque afecta la UX.
+
+  analisis.txt:
+    - es_condicion con 3 valores: Regular, Previa, Libre.
+    - Tiene limite_materias (Previa=3, Regular=8; NULL = sin limite).
+    - LA ELIGE EL ALUMNO: la cascada es orientacion -> curso -> materia ->
+      CONDICION (RB-20 y el endpoint POST /inscripciones).
+    - La condicion vive en es_mesa_examen.condicion_id (la mesa es de una
+      condicion) y se copia en es_mesa_inscripcion.condicion_id.
+    - Consecuencia: para la MISMA materia puede haber DOS mesas
+      (una Regular y una Previa): la unicidad de mesa es
+      (materia, condicion, fecha).
+
+  diseno.md (D6, D7, RB-04):
+    - 4 valores: REGULAR, PREVIA, COMPLETAR ESTUDIO, EQUIVALENCIA
+      (los 4 son del impreso real de la escuela; "Libre" no esta en el).
+    - LA ASIGNA EL ADMIN, nunca el alumno.
+    - Es UNA sola condicion por permiso y vive en permits.condition.
+    - El alumno nace en REGULAR; si necesita dos condiciones, se emiten
+      DOS permisos (RB-18).
+
+  -> CONFLICTOS:
+     1. Cantidad: 3 valores (ellos) vs 4 (nosotros). Los 4 nuestros salen
+        del formulario aprobado de la escuela, asi que probablemente sea
+        nuestra lista la que aplace.
+     2. Quien la pone: alumno (ellos) vs admin (nosotros).
+        -> En nuestro prototipo el alumno NO elige condicion.
+           En el de ellos SI. Es visible en la pantalla de inscripcion.
+     3. Donde vive: en la MESA (ellos, por eso hay mesas duplicadas por
+        condicion) vs en el PERMISO (nosotros, una sola mesa por materia).
+     4. Limite de materias por condicion: ellos lo previeron
+        (Previa 3 / Regular 8); nosotros tenemos limite de 6 por permiso
+        por el impreso (RB-13). SON DISTINTOS y pueden coexistir:
+           - RB-13 nuestro: tope de FILAS del formulario (6).
+           - PD-02 de ellos: tope de MATERIAS rendibles por condicion.
+        Pero ojo: si Regular permite 8 y el formulario tiene 6 filas,
+        el alumno con 8 materias necesita DOS permisos - exactamente lo
+        que dice RB-13. Se sostienen, pero hay que escribirlo juntos.
+
+================================================================================
+7. MESAS DE EXAMEN
+================================================================================
+Punto por punto:
+
+  a) QUIEN CREA LA MESA
+     ellos  RB-20: LA CREA EL PRIMERO EN ANOTARSE. El alumno elige la
+            cascada y si no existe es_mesa_examen para esa combinacion,
+            el backend la crea. Motivo del usuario: 6 cursos x 8-10
+            materias = 48-60 mesas por orientacion; es imposible que el
+            secretario las habilite una por una. "El alta de mesas NO es
+            tarea de administracion."
+     nosotros D11 + RB-17: la mesa YA EXISTE con fecha y horario
+            asignados por un SISTEMA EXTERNO que la app importa
+            (date_source = externa), y si falla la sincronizacion el
+            admin la carga o fuerza a mano (date_source = manual).
+            "Sistema externo que asigna las fechas" figura como POSPUESTO
+            en nuestro seccion 9.
+
+     -> CONFLICTO DE FONDO. Son dos respuestas distintas a la misma
+        pregunta: "como aparecen las 153 mesas?".
+        Ellos: aparecen solas, al primer inscripto.
+        Nosotros: vienen de afuera (sistema externo) o las carga el admin.
+        Si NUNCA llega el sistema externo, nuestro modelo queda con mesas
+        vacias y todos los alumnos con "materia sin fecha -> deshabilitada".
+        El mecanismo de ellos no depende de nadie. Es su mejor argumento.
+
+  b) VENTANA DE INSCRIPCION
+     ellos  : UNA ventana por convocatoria (es_convocatoria.
+              fecha_inicio_inscripcion / fecha_fin_inscripcion), porque
+              todas las mesas se rinden el mismo dia (RB-05, RB-16).
+     nosotros: ventana POR MESA (mesas.registration_opens_at /
+              registration_closes_at), RB-12.
+
+     -> DIFERENCIA DE GRANULARIDAD. Si en la realidad todas las mesas de
+        una campana son el mismo dia, la ventana unica es mas simple y
+        evita 153 pares de fechas. Si cada materia tiene dia propio,
+        nuestra version es la correcta.
+
+  c) CONVOCATORIA (campaña)
+     ellos  : tabla es_convocatoria. Juliol y septiembre son DOS filas;
+              cerrada una, se abre otra, y las inscripciones no se pisan
+              (RB-16, RB-08).
+     nosotros: NO EXISTE el concepto. Nuestro modelo no distingue
+               campanas: si en 2027 vuelve a abrirse la misma materia,
+               la inscripcion vieja sigue ahi y habria que separarlas
+               a mano.
+
+     -> FALTA REAL NUESTRA. Su es_convocatoria resuelve un problema que
+        nosotros no planteamos pero que va a aparecer en el primer
+        segundo cuatrimestre.
+
+  d) COLUMNAS DE LA MESA
+     ellos  : convocatoria_id, condicion_id, materia_id, fecha, hora
+              (nullable), estado (planificada|cerrada|realizada) y
+              CUATRO SNAPSHOTS: orientacion_nombre, curso_nombre,
+              materia_nombre, condicion_nombre (RB-11: se recalculan solo
+              al editar la mesa, nunca cuando se renombra el origen, para
+              que el acta historica no mienta).
+     nosotros: subject_id (UNICO), date, time, location, date_source,
+              external_ref, last_synced_at, ventana, status.
+
+     -> DIFERENCIAS:
+        * Ellos NO guardan LUGAR/aula. Nosotros si (location). Nosotros
+          tenemos un dato que ellos no.
+        * Ellos SI guardan estado de ciclo de vida de la mesa
+          (planificada/cerrada/realizada). Nosotros abierta/cerrada es
+          sobre la INSCRIPCION, no sobre la mesa.
+        * Ellos SI hacen snapshot de nombres (proteccion contra renombres).
+          Nosotros no; si la escuela corrige "Infromacion" por
+          "Informacion" en subjects, el permiso ya emitido mostraria el
+          nombre nuevo. Ellos lo evitan. IDEA A COPIAR, sobre todo porque
+          nuestro catalogo viene con tipeos a corregir (§6 del diseno).
+        * Ellos NO tienen las columnas de sincronizacion externa
+          (date_source / external_ref / last_synced_at) porque no creen
+          en el sistema externo.
+
+  e) UNICIDAD
+     ellos  : UNIQUE (materia_id, condicion_id, fecha) -> hasta 3 mesas
+              por materia (una por condicion, si la fecha coincide).
+     nosotros: UNIQUE (subject_id) -> UNA sola mesa por materia (D14).
+
+     -> CONFLICTO DIRECTO, heredado del punto 6.3.
+
+  f) RB-15 de ellos: "SIN DIVISION NI TURNO"  ==  D14 nuestra:
+     coincide exactamente. Ninguno modela turnos ni letras de division.
+
+================================================================================
+8. INSCRIPCIONES
+================================================================================
+  analisis.txt (es_mesa_inscripcion):
+    - usuario_id, mesa_examen_id, convocatoria_id, materia_id (copia),
+      condicion_id (copia), estado, inscripto_en.
+    - estado: SOLO 'inscripto' | 'anulado'  (RB-02: anotarse es DIRECTO,
+      no hay etapa de aprobacion; RB-18: sin registro de inasistencia).
+    - Unicidad: UNIQUE (convocatoria_id, usuario_id, materia_id) excluyendo
+      los anulados (RB-08) -> NO es unicidad por mesa.
+    - Guarda la copia de materia y condicion para que el indice pueda
+      imponer esa unicidad y para que si mañana cambia la condicion, la
+      inscripcion vieja no mienta.
+
+  diseno.md (enrollments):
+    - student_id, subject_id, mesa_id (obligatoria), status, requested_at,
+      confirmed_at, confirmed_by -> users, notes.
+    - status: 'pendiente' | 'confirmada' | 'anulada'.
+    - RB-03: no hay doble inscripcion en la misma materia (con 1 mesa por
+      materia, anular y volver a hacer).
+
+  -> DIFERENCIAS:
+     a) 2 estados directos (ellos) vs 3 estados con confirmacion (nosotros).
+        NUESTRO MODELO ES AMBIGUO AQUI: tenemos confirmed_at/confirmed_by
+        (alguien confirma) pero RB-01/D1 dicen que el alumno se inscribe
+        solo y el prototipo genera el permiso al confirmar.
+        -> Hay que definir: si la confirmacion la hace el sistema
+           automaticamente, esos campos sobran; si la hace un admin,
+           nuestro flujo tiene una aprobacion que ellos no tienen.
+     b) Unicidad: por convocatoria+alumno+materia (ellos, mas precisa)
+        vs por alumno+materia (nosotros, que ademas no tiene campanas).
+     c) Ellos copian materia_id y condicion_id dentro de la inscripcion
+        (trazabilidad); nosotros solo subject_id y la condicion vive
+        separada, en permits.
+
+================================================================================
+9. PERMISO DE EXAMEN Y REPORTES
+================================================================================
+  diseno.md (lo nuestro):
+    - tabla permits: student_id, enrollment_ids[], year, condition,
+      title_text, libro, folio, pdf_url, checksum, generated_at,
+      generated_by.
+    - RB-09: se genera al confirmar, queda GUARDADO y se re-descarga
+      las veces que haga falta (checksum = integridad de lo emitido).
+    - RB-14: es borrador, valido solo con firma manuscrita del Secretario.
+    - RB-15: libro/folio/calificacion/firma los llena la escuela.
+    - RB-13: maximo 6 filas por permiso.
+    - RB-18: titulo dinamico + una sola condicion por permiso.
+    - YA ESTA CONSTRUIDO y aprobado: tools/generar_permiso.py
+      (plantilla original de la escuela + purga de texto + overlay).
+
+  analisis.txt (ellos):
+    - NO HAY TABLA DE PERMISOS. El permiso es un REPORTE en tiempo real
+      desde los endpoints:
+          GET /reportes/permiso-examen/{usuario_id}   (individual)
+          GET /reportes/permisos-examen                (masivo por mesa)
+          GET /reportes/acta-volante/{mesa_id}         (por mesa)
+          GET /reportes/mesa/{id}                      (lee los snapshots)
+    - RB-19: DOS reportes de cierre: Permiso de Examen (al alumno) y
+      ACTA VOLANTE (a los profesores evaluadores).
+
+  -> DIFERENCIAS:
+     a) ELLOS NO PERSISTEN EL PDF. Cada impresion se calcula al momento:
+        si despues cambia la fecha o el nombre de una materia, el papel
+        que quedo en la carpeta ya no coincide con lo que ahora dice la
+        base. Nosotros guardamos pdf_url + checksum y por eso podemos
+        asegurar "asi se emitio ese dia".
+     b) Ellos NO tienen LIBRO ni FOLIO. Son columnas nuestras porque la
+        escuela las lleva a mano en el impreso (RB-15) y el admin las
+        completa (§3.4).
+     c) Ellos NO guardan la condicion en el permiso porque su permiso es
+        derivado de las inscripciones, y ahi la condicion esta en la mesa.
+     d) Ellos AGREGAN EL ACTA VOLANTE, que en nuestro diseno NO EXISTE.
+        Es una pieza nueva del sistema (listado por mesa para los
+        profesores). Habria que incorporarla.
+     e) Ellos agrupan por MESA para la impresion masiva (RB-22: solo mesas
+        con al menos 1 inscripto activo). Nosotros agrupamos por PERMISO.
+
+================================================================================
+10. COINCIDENCIAS (no chocan)
+================================================================================
+  - RB-15 de ellos (sin division, sin turno)  ==  D14 nuestra.
+  - No guardar notas ni asistencia: ellos RB-18/RB-21; nosotros fuera de
+    alcance (§1). Dicen lo mismo.
+  - Sin cupo por mesa: ellos RB-01 explicito; nosotros no lo planteamos
+    y tampoco chocamos.
+  - Un DNI = una persona: ellos uq_persona_documento (parcial, con soft
+    delete); nosotros RB-01 + UNIQUE en students.dni.
+  - Hash de contraseñas nunca en texto plano: RB-11 nuestra == 2.5 de
+    ellos (Argon2id).
+  - Rate limit 5 intentos / 15 min: identico en ambos.
+  - Baja logica en vez de borrado fisico: ellos deleted_at; nosotros
+    status (activo|baja). Mismo proposito.
+  - Talleres como materia normal: ellos lo explicitan; en nuestro modelo
+    tambien seria una materia mas.
+  - La autorizacion vive en el servidor, no en la UI.
+
+================================================================================
+11. CONFLICTOS (hay que decidir uno por uno)
+================================================================================
+ # | Tema                | diseno.md (nosotros)   | analisis.txt (ellos)
+---+---------------------+------------------------+------------------------
+ 1 | Idioma de tablas    | ingles (aunque hoy     | ESPAÑOL con prefijos
+   |                     | esta mezclado)         | pe_/us_/es_/pr_
+---+---------------------+------------------------+------------------------
+ 2 | Clave primaria      | id (entero)            | uuid
+---+---------------------+------------------------+------------------------
+ 3 | Quien CREA la mesa  | sistema externo /      | LA CREA EL PRIMERO
+   |                     | admin la fuerza        | QUE SE ANOTA
+---+---------------------+------------------------+------------------------
+ 4 | Ventana de          | POR MESA               | UNA por convocatoria
+   | inscripcion         | (RB-12)                | (RB-05/RB-16)
+---+---------------------+------------------------+------------------------
+ 5 | Campanas            | no existe el concepto  | es_convocatoria
+   |                     |                        | (julio / septiembre)
+---+---------------------+------------------------+------------------------
+ 6 | Quien ASIGNA        | el ADMIN (D6/RB-04)    | el ALUMNO, en la
+   | la condicion        |                        | cascada (RB-20)
+---+---------------------+------------------------+------------------------
+ 7 | Valores de la       | 4 (los del impreso)    | 3: Regular/Previa/Libre
+   | condicion           |                        | + limite_materias
+---+---------------------+------------------------+------------------------
+ 8 | Donde vive la       | en el PERMISO          | en la MESA y en la
+   | condicion           | (permits.condition)    | inscripcion
+---+---------------------+------------------------+------------------------
+ 9 | Mesas por materia   | UNA (UNIQUE subject)   | varias: (materia,
+   |                     |                        | condicion, fecha)
+---+---------------------+------------------------+------------------------
+10 | Estados de          | pendiente |             | inscripto | anulado
+   | inscripcion         | confirmada | anulada    | (directo, sin aprob.)
+---+---------------------+------------------------+------------------------
+11 | Permiso de examen   | TABLA permits: se       | REPORTE al momento,
+   |                     | guarda el PDF          | no se guarda nada
+---+---------------------+------------------------+------------------------
+12 | Registro del        | LIBRE + verificacion    | alta solo desde SIGME
+   | alumno              | de correo (RB-16)      | (no hay registro)
+---+---------------------+------------------------+------------------------
+13 | Roles               | 2: alumno | admin       | rol->permiso->modulo,
+   |                     |                        | ej. admin/docente/alumno
+---+---------------------+------------------------+------------------------
+14 | Tipo de documento   | solo DNI               | tabla pe_documento_tipo
+   |                     |                        | (DNI, LC, LE, Pasaporte)
+---+---------------------+------------------------+------------------------
+15 | Lugar de la mesa    | location (aula)        | NO existe
+---+---------------------+------------------------+------------------------
+16 | Tecnica del catalogo| 2 niveles (grado+año)   | 3 niveles (orientacion->
+   |                     |                        | curso->materia), con
+   |                     |                        | codigo y es_taller
+---+---------------------+------------------------+------------------------
+17 | Alcance             | app movil + panel admin| landing + SIGME web +
+   |                     |                        | SIGME-M  (3 apps)
+---+---------------------+------------------------+------------------------
+18 | Nombre de las       | "TECNOLOGIA DE LOS     | "Tecnicatura en Tecnologia
+   | tecnicaturas        | ALIMENTOS" (corto)     | de los Alimentos" (largo)
+   |                     |                        | idem Gestion Organizacional
+
+================================================================================
+12. PENDIENTES DE ELLOS QUE NOSOTROS YA RESOLVIMOS
+================================================================================
+  Su seccion 7 (PD-xx) vs nuestro estado:
+
+  PD-04 [PENDIENTE] "Reset de contraseña por email? implica us_password_reset"
+      -> NOSOTROS LO RESOLVEMOS HOY: RB-19 + §3.1.1 + tabla password_resets
+         (purpose, attempts, sent_to, expires_at 15 min, used_at),
+         DNI + correo, codigo de 6 digitos, error generico anti-enumeracion.
+         Ellos todavia lo tienen como pregunta. Se lo llevamos cerrado.
+
+  PD-05 [PENDIENTE] "Bitacora de auditoria? aud_evento con JSONB"
+      -> NOSOTROS: RB-10 audit_log (actor_user_id, action, entity,
+         entity_id, before, after). Resuelto en diseno.md.
+
+  PD-09 [PENDIENTE] "El usuario va a pasar el detalle de que materias
+      corresponde a cada curso y orientacion"
+      -> NOSOTROS: data/materias.csv con las 153 materias ya cargadas
+         y docs/correcciones-materias.md con los tipeos corregidos.
+         Resuelto (y revisado con el usuario: el 6to año de Gestion
+         con 7 materias esta bien).
+
+  PD-03 [PENDIENTE] "Alta inicial de roles y usuarios administradores"
+      -> PARCIALMENTE: nosotros ya decidimos admin/admin con cambio
+         obligatorio en el primer ingreso (§2). Falta el script semilla
+         (eso si esta pendiente de los dos).
+
+  Su RB-19 (permiso + acta volante) vs nuestro trabajo:
+      -> el PERMISO ya esta construido y aprobado (tools/generar_permiso.py,
+         docs/muestras/permiso-muestra.pdf). Ellos lo dan por hacer.
+         Nosotros solo nos falta el ACTA VOLANTE.
+
+  Al reves - cosas nuestras que todavia NO estan en su documento:
+      - La ventana de recuperacion RB-19.
+      - El audit_log.
+      - El registro libre con verificacion de correo.
+      - El PDF con plantilla + purga (§7.5) y su verificacion.
+      - libro/folio y el titulo dinamico por condicion.
+      - El limite de 6 filas del formulario.
+
+================================================================================
+13. LO QUE TIENE UNO Y NO EL OTRO
+================================================================================
+  SOLO ellos tienen:
+    - Stack concreto y estructura de proyecto (features/ por dominio).
+    - Endpoint list (auth, landing, sigme, sigme-mobile).
+    - JWT con refresh + rotacion + reuse detection + token_version.
+    - us_sesion y "cerrar sesion en todos los dispositivos".
+    - RBAC granular con permisos codificados y modulos por app.
+    - es_convocatoria (campanas separadas).
+    - Snapshots de nombres en la mesa (proteccion historica).
+    - Acta volante.
+    - Landing de preinscripcion (pr_preinscripcion + pr_ventana).
+    - Checklist de calidad (Alembic, triggers, ruff, mypy, tests).
+    - Ley 25.326 (Habeas Data) repartido por articulo.
+    - Bloqueo temporal con bloqueado_hasta.
+
+  SOLO nosotros tenemos:
+    - Permiso de Examen YA GENERADO (PDF real sobre la plantilla).
+    - Tabla permits con pdf_url + checksum + libro + folio + historial.
+    - Recuperacion de acceso por DNI + correo (RB-19).
+    - Verificacion de correo (email_verified_at + codigo).
+    - Registro libre de alumnos.
+    - audit_log (RB-10).
+    - Lugar/aula de la mesa y sincronizacion externa de fechas.
+    - Las 153 materias ya cargadas y corregidas.
+    - Mapa de 8 pantallas con lo que ve cada usuario.
+    - Rol admin con cambio obligatorio de contraseña.
+
+================================================================================
+14. ADVERTENCIA: NUMERACION RB DUPLICADA
+================================================================================
+  Los DOS documentos usan RB-01..RB-19 y NO SIGNIFICAN LO MISMO.
+  Ejemplos (mismo numero, distinta regla):
+
+   RB  | diseno.md (nosotros)          | analisis.txt (ellos)
+  -----+-------------------------------+--------------------------------
+   01  | un solo registro por DNI      | no hay cupo por mesa
+   02  | materias solo de su tecnicatura| sin etapa de aprobacion
+   03  | no hay doble inscripcion      | limite de materias por condicion
+   04  | condicion unica por permiso   | talleres como materia normal
+   07  | recuperar con correo verif.   | tras cerrar ventana, solo consultar
+   08  | DNI/Nombre/Apellido no se     | no inscribirse dos veces en la
+   |   | editan por el alumno          | misma materia y convocatoria
+   13  | maximo 6 materias por permiso | repetir preinscripcion = upsert
+   15  | libro/folio los llena la      | sin division ni turno
+   |   | escuela                       |
+   17  | fechas desde sistema externo  | lista fija al cerrar la ventana
+   18  | titulo dinamico del permiso   | sin revalidar ni anotar inasist.
+   19  | recuperar acceso (DNI+correo) | dos reportes: permiso + acta
+
+  -> SI VAMOS A MEZCLAR AMBOS DOCUMENTOS, RE-ENUMERAR. Hablar de "RB-19"
+     en una reunion con los dos documentos sobre la mesa es pedir un
+     malentendido.
+
+================================================================================
+15. CONCLUSION
+================================================================================
+  Los dos documentos NO se pisan en su mayor parte: uno explica que hace
+  la app y el otro como se construye. Lo que si hay que resolver es la
+  mitad tecnica del diseno.md (que quedo agnostica a proposito) y los
+  18 conflictos de la seccion 11.
+
+  LOS TRES QUE DECIDEN EL SHAPE DEL SISTEMA:
+   (1) Quien crea las mesas: sistema externo/admin (nosotros) vs el
+       primero en anotarse (ellos). Su argumento es fuerte (48-60 mesas
+       por orientacion); nuestro modelo depende de un sistema externo
+       que sigue POSPUESTO. Si no llega, nuestro flujo no anda.
+   (2) Quien pone la condicion: admin (nosotros, y sale del impreso
+       aprobado) vs alumno en la cascada (ellos). Cambia la pantalla
+       de inscripcion tal cual se mostro al usuario.
+   (3) Ventana unica por campana (ellos) vs ventana por mesa (nosotros),
+       que va de la mano de si existe o no es_convocatoria.
+
+  LO QUE HAY QUE COPIAR DE ELLOS (no es opinable, es ingenieria):
+    - convenciones de la seccion 2 (timestamptz, soft delete + indice
+      parcial, ON DELETE explicito, PK compuesta en junctions,
+      trigger de updated_at).
+    - el stack y la estructura por dominio, que cierra nuestro punto
+      "fuera de alcance".
+    - los snapshots de nombres de la mesa, que protegen el PDF historico
+      (y a nosotros nos sirve aun mas: el catalogo viene con tipeos).
+
+  LO QUE ELLOS DEBERIAN TOMAR DE NOSOTROS:
+    - RB-19 (recuperacion) y RB-10 (auditoria): cerrarian PD-04 y PD-05.
+    - data/materias.csv: cerraria PD-09.
+    - la tabla de permisos con checksum: sin eso, el papel impreso y la
+      base dejan de coincidir.
+    - libro/folio y el titulo dinamico, que los pide el impreso real.
+
+  PROXIMO PASO SUGERIDO: generar el prototipo de base de datos NUESTRO
+  (la "columna de la izquierda" de la seccion 11, ya con las convenciones
+  de la seccion 2 copiadas de ellos) y usarlo para discutir los 18
+  conflictos con el esquema concreto enfrente.
+
+================================================================================
+Fin de la comparativa.
+================================================================================

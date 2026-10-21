@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo — Inscripción a Mesas de Examen · E.P.E.T. N°36</title>
+<style>
+  :root{
+    --bg:#eef1f6; --ink:#151a22; --muted:#66707f; --line:#dfe4ec;
+    --brand:#1d4ed8; --brand-ink:#ffffff; --ok:#15803d; --warn:#b45309; --danger:#b91c1c;
+    --card:#ffffff; --chip:#eef2ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+    padding:24px 16px 64px;
+  }
+  header.proto{max-width:960px;text-align:center}
+  header.proto h1{font-size:20px;margin:0 0 4px}
+  header.proto p{margin:0;color:var(--muted);font-size:13px}
+  .avisos{max-width:960px;background:#fff8e6;border:1px solid #f0e0b0;border-radius:10px;
+    padding:10px 14px;font-size:13px;color:#7a5a12}
+  .pantallas{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:960px}
+  .pantallas button{
+    font:inherit;font-size:13px;padding:7px 14px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink)
+  }
+  .pantallas button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  /* teléfono */
+  .phone{
+    width:390px;max-width:100%;height:800px;background:#000;border-radius:38px;
+    padding:10px;box-shadow:0 18px 40px rgba(10,20,40,.28)
+  }
+  .screen{
+    position:relative;height:100%;background:var(--bg);border-radius:30px;overflow:hidden;
+    display:flex;flex-direction:column
+  }
+  .statusbar{height:26px;background:#fff;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;font-size:11px;color:var(--muted);flex:0 0 auto;border-bottom:1px solid var(--line)}
+  .topbar{background:#fff;padding:14px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .topbar h2{margin:0;font-size:17px}
+  .topbar small{color:var(--muted)}
+  .body{flex:1 1 auto;overflow-y:auto;padding:16px 16px 90px}
+  .tabbar{
+    position:absolute;left:0;right:0;bottom:0;height:62px;background:#fff;
+    border-top:1px solid var(--line);display:flex;align-items:stretch
+  }
+  .tabbar button{
+    flex:1;border:0;background:none;font:inherit;font-size:11px;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer
+  }
+  .tabbar button.on{color:var(--brand);font-weight:600}
+  .tabbar .ico{font-size:17px;line-height:1}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 8px;font-size:14px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .muted{color:var(--muted);font-size:13px}
+  .chip{display:inline-block;background:var(--chip);color:var(--brand);border-radius:999px;
+    padding:2px 10px;font-size:11px;font-weight:600}
+  .chip.ok{background:#e7f6ec;color:var(--ok)}
+  .chip.warn{background:#fdf1e3;color:var(--warn)}
+  .btn{
+    display:block;width:100%;text-align:center;font:inherit;font-weight:600;cursor:pointer;
+    background:var(--brand);color:var(--brand-ink);border:0;border-radius:12px;padding:13px 14px;margin-top:6px
+  }
+  .btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  .btn.subtle{background:#f3f5f9;color:var(--ink);border:1px solid var(--line)}
+  .btn.small{width:auto;padding:8px 12px;font-size:13px;border-radius:10px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select{
+    width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff
+  }
+  .ro{background:#f5f6f9;color:var(--muted)}
+  .divider{border:0;border-top:1px solid var(--line);margin:14px 0}
+  .radio{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px;margin-top:8px;cursor:pointer}
+  .radio.on{border-color:var(--brand);background:#f5f8ff}
+  .radio input{width:auto;margin-top:3px}
+  .materia{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+  .materia.sel{border-color:var(--brand);background:#f7faff}
+  .materia.off{opacity:.55}
+  .materia .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .materia b{font-size:14px}
+  .cond{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+  .cond select{font-size:13px;padding:8px 10px}
+  .cond select:disabled{background:#f5f6f9;color:var(--muted);cursor:not-allowed}
+  .aviso-mezcla{background:#fdf1e3;border:1px solid #f0c98a;color:#7a5a12;border-radius:10px;
+    padding:9px 11px;font-size:13px;font-weight:600;margin-top:10px}
+  .confirm-msg{background:#e7f6ec;border:1px solid #b7e3c6;color:#0f5c2f;border-radius:10px;
+    padding:9px 11px;font-size:13px;margin-top:10px}
+  .mesa{margin-top:9px;display:flex;flex-direction:column;gap:6px}
+  .mesaopt{display:flex;gap:9px;align-items:center;font-size:13px;border:1px solid var(--line);
+    border-radius:10px;padding:8px 10px;cursor:pointer;background:#fff}
+  .mesaopt.on{border-color:var(--brand);background:#eef4ff}
+  .counter{position:sticky;top:0;background:var(--bg);padding:6px 0 8px;font-size:13px;font-weight:600;z-index:2}
+  .bar{height:6px;background:#e3e7ee;border-radius:99px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .seg{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .seg button{font:inherit;font-size:12px;padding:6px 11px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--line);background:#fff}
+  .seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .stat{display:flex;gap:10px}
+  .stat .k{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .stat .k b{display:block;font-size:20px}
+  .stat .k span{font-size:11px;color:var(--muted)}
+  .permiso{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px;margin-top:10px}
+  .permiso .mini{font-size:11px;color:var(--muted);margin-top:6px}
+  .oculto{display:none!important}
+  footer{color:var(--muted);font-size:12px;max-width:960px;text-align:center}
+</style>
+</head>
+<body>
+
+<header class="proto">
+  <h1>Prototipo visual — Inscripción a Mesas de Examen · E.P.E.T. N°36</h1>
+  <p>Maqueta interactiva con datos de mentira. No hay backend: es solo para definir pantallas y flujo.</p>
+</header>
+
+<div class="avisos">
+  <b>Solo maqueta.</b> Nada de lo que toques acá guarda datos. Los textos, reglas (RB) y decisiones (D1–D15) salen de <code>docs/diseno.md</code>; si ves algo que no querés, se cambia en el diseño y acá.
+</div>
+
+<div class="pantallas" id="menu">
+  <button data-go="login" class="on">1 · Login</button>
+  <button data-go="recuperar">2 · Recuperar acceso</button>
+  <button data-go="registro">3 · Crear cuenta</button>
+  <button data-go="home">4 · Home alumno</button>
+  <button data-go="inscripcion">5 · Inscripción a materia</button>
+  <button data-go="permisos">6 · Mis permisos</button>
+  <button data-go="perfil">7 · Perfil</button>
+  <button data-go="admin">8 · Panel admin</button>
+</div>
+
+<div class="phone">
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span>E.P.E.T. N°36</span><span>100%</span></div>
+
+  <!-- ======================= LOGIN ======================= -->
+  <section id="login" class="vista">
+    <div class="topbar"><h2>Iniciar sesión</h2><small>Acceso de alumnos y administración</small></div>
+    <div class="body">
+      <div class="card">
+        <label>Usuario o correo</label>
+        <input value="38456789" placeholder="D.N.I. o correo">
+        <label>Contraseña</label>
+        <input type="password" value="********">
+        <button class="btn" data-go="home">Iniciar sesión</button>
+        <button class="btn ghost" data-go="registro">Crear cuenta</button>
+        <hr class="divider">
+        <p class="muted" style="margin:0">¿Olvidaste tu contraseña? Validamos tu D.N.I. y te mandamos un código al correo.</p>
+        <button class="btn subtle" data-go="recuperar">Recuperar acceso</button>
+      </div>
+      <div class="card muted">
+        <b style="color:var(--ink)">Nota de flujo:</b> si la cuenta es de admin, el login entra directo al
+        panel de administración (sección 7). La contraseña inicial <code>admin/admin</code> obliga a
+        cambiarla en el primer ingreso.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= RECUPERAR ACCESO ======================= -->
+  <section id="recuperar" class="vista oculto">
+    <div class="topbar"><h2>Recuperar acceso</h2><small>Paso <span id="rec-paso">1</span> de 4 · RB-19</small></div>
+    <div class="body">
+
+      <!-- paso 1 -->
+      <div class="card rec-paso" data-paso="1">
+        <h3>1 · Identificate</h3>
+        <p class="muted" style="margin:0 0 4px">Ingresá tu D.N.I. y el correo que tenés cargado en tu ficha.</p>
+        <label>D.N.I.</label><input placeholder="38.456.789">
+        <label>Correo electrónico</label><input placeholder="tu.correo@correo.com">
+        <button class="btn" data-rec="2">Continuar</button>
+        <button class="btn subtle" data-go="login">Volver al login</button>
+        <p class="muted" style="margin:10px 0 0">Los dos datos tienen que coincidir con tu ficha de alumno.</p>
+      </div>
+
+      <!-- paso 2 -->
+      <div class="card rec-paso oculto" data-paso="2">
+        <h3>2 · Verificá tu correo</h3>
+        <p class="muted" style="margin:0 0 4px">Mandamos un código de 6 dígitos a <b>mar•••@correo.com</b>.</p>
+        <label>Código de verificación</label><input placeholder="– – – – – –" maxlength="6" inputmode="numeric">
+        <button class="btn" data-rec="3">Validar código</button>
+        <button class="btn subtle">Reenviar código (60 s)</button>
+        <p class="muted" style="margin:10px 0 0">Expira en 15 minutos · 5 intentos y se bloquea.
+        Si tu correo todavía no está verificado, un admin tiene que hacerlo primero (RB-07).</p>
+      </div>
+
+      <!-- paso 3 -->
+      <div class="card rec-paso oculto" data-paso="3">
+        <h3>3 · Nueva contraseña</h3>
+        <label>Nueva contraseña</label><input type="password" placeholder="mínimo 8 caracteres">
+        <label>Repetir nueva contraseña</label><input type="password" placeholder="repetila">
+        <button class="btn" data-rec="4">Guardar contraseña</button>
+        <p class="muted" style="margin:10px 0 0">El código se consume: no se puede usar dos veces.</p>
+      </div>
+
+      <!-- paso 4 -->
+      <div class="card rec-paso oculto" data-paso="4">
+        <h3>4 · Listo ✅</h3>
+        <p class="muted" style="margin:0 0 6px">Tu contraseña quedó actualizada. Entrá con la nueva.</p>
+        <button class="btn" data-go="login">Volver al login</button>
+      </div>
+
+      <div class="card muted">
+        <b style="color:var(--ink)">Seguridad:</b> el error es siempre el mismo exista o no el D.N.I.,
+        así no se adivina qué documentos están registrados. El admin <b>no</b> usa este flujo:
+        su contraseña la resetea otro admin.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= REGISTRO ======================= -->
+  <section id="registro" class="vista oculto">
+    <div class="topbar"><h2>Crear cuenta</h2><small>Registro libre · un D.N.I. = una cuenta (RB-01 / RB-16)</small></div>
+    <div class="body">
+      <div class="card">
+        <label>Nombre</label><input value="María Soledad">
+        <label>Apellido</label><input value="Pérez">
+        <label>D.N.I. (único)</label><input value="38.456.789">
+        <label>Correo electrónico</label><input value="maria.perez@correo.com">
+        <label>Teléfono</label><input value="376 412-3456">
+        <label>Tecnicatura</label>
+        <label class="radio on"><input type="radio" name="tec" checked>
+          <span><b>Gestión Organizacional</b><br><span class="muted">14 · 14 · 14 · 14 · 15 · 7 materias por año</span></span></label>
+        <label class="radio"><input type="radio" name="tec">
+          <span><b>Tecnología de los Alimentos</b><br><span class="muted">13 · 13 · 14 · 13 · 12 · 10 materias por año</span></span></label>
+        <label>Contraseña</label><input type="password" value="********">
+        <label>Repetir contraseña</label><input type="password" value="********">
+        <button class="btn" data-go="home">Crear cuenta</button>
+        <p class="muted" style="margin:10px 0 0">Al crear la cuenta te llega un código al correo para verificarlo.
+        La app es de registro libre: no esperás aprobación de nadie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= HOME ALUMNO ======================= -->
+  <section id="home" class="vista oculto">
+    <div class="topbar"><h2>Hola, María 👋</h2><small>Gestión Organizacional · 3° año</small></div>
+    <div class="body">
+      <div class="card">
+        <div class="row"><h3 style="margin:0">Permiso · 4 de 6 asignaturas</h3><span class="chip ok">Regular</span></div>
+        <div class="bar"><i style="width:66%"></i></div>
+        <table style="margin-top:10px">
+          <tr><th>Materia</th><th>Fecha y horario</th></tr>
+          <tr><td>Programación de las Compras y Ventas</td><td>03/11 · 08:00</td></tr>
+          <tr><td>Sistema de Información Contable 1</td><td>05/11 · 08:00</td></tr>
+          <tr><td>Administración y Gestión de RRHH</td><td>10/11 · 14:00</td></tr>
+          <tr><td>Historia</td><td>12/11 · 08:00</td></tr>
+        </table>
+        <button class="btn small ghost" data-go="permisos" style="margin-top:10px">Ver permiso / PDF</button>
+      </div>
+
+      <div class="card">
+        <div class="row"><h3 style="margin:0">Materias sin inscribir</h3><span class="muted">aún disponibles</span></div>
+        <p class="muted" style="margin:6px 0 0">Quedan 2 lugares del permiso y 3 materias con fecha cargada.</p>
+        <button class="btn" data-go="inscripcion">Inscribirme a una materia</button>
+      </div>
+
+      <div class="card muted">
+        <b style="color:var(--ink)">Lo que decide el alumno:</b> elegir materias y bajar su PDF.
+        Cada materia tiene <b>una sola mesa</b> (día y horario fijos, D14): no hay turnos ni elegir mesa.
+        La <b>condición</b> (REGULAR · PREVIA · COMPLETAR ESTUDIO · EQUIVALENCIA) la elegís vos al
+        inscribirte, una por materia y por defecto REGULAR (D15); el admin solo la corrige.
+        LIBRO/FOLIO los carga la escuela (RB-04 / RB-15).
+      </div>
+    </div>
+    <nav class="tabbar" data-tabs="alumno">
+      <button class="on" data-go="home"><span class="ico">🏠</span>Inicio</button>
+      <button data-go="inscripcion"><span class="ico">➕</span>Inscribir</button>
+      <button data-go="permisos"><span class="ico">📄</span>Permisos</button>
+      <button data-go="perfil"><span class="ico">👤</span>Perfil</button>
+    </nav>
+  </section>
+
+  <!-- ======================= INSCRIPCIÓN ======================= -->
+  <section id="inscripcion" class="vista oculto">
+    <div class="topbar"><h2>Inscripción a mesa</h2><small>Solo materias de tu tecnicatura (RB-02)</small></div>
+    <div class="body">
+      <div class="card" style="margin-bottom:6px">
+        <label>Tecnicatura</label>
+        <input class="ro" value="Gestión Organizacional" readonly>
+        <label>Año</label>
+        <div class="seg" id="anios">
+          <button>1°</button><button>2°</button><button class="on">3°</button>
+          <button>4°</button><button>5°</button><button>6°</button>
+        </div>
+      </div>
+
+      <div class="counter">
+        <span id="contador-txt">4 de 6 asignaturas</span>
+        <div class="bar"><i id="contador-bar" style="width:66%"></i></div>
+      </div>
+
+      <div class="materia sel" data-sid="s-rrhh" data-existing="1">
+        <div class="top"><b>Administración y Gestión de RRHH</b><span class="chip ok">Inscripta</span></div>
+        <div class="mesa">
+          <div class="mesaopt on"><input type="checkbox" checked> 10/11/2026 · 14:00 · Aula 3</div>
+          <label class="cond">Condición
+            <select class="cond-sel" disabled>
+              <option value="regular" selected>REGULAR</option>
+              <option value="previa">PREVIA</option>
+              <option value="completar_estudio">COMPLETAR ESTUDIO</option>
+              <option value="equivalencia">EQUIVALENCIA</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted" style="margin:8px 0 0">Ya estás inscripta: la condición existente se muestra
+        solo lectura y la corrige el admin (D15). Cada materia tiene UNA sola mesa (D14).</p>
+      </div>
+
+      <div class="materia sel" data-sid="s-comu">
+        <div class="top"><b>Comunicación y Comportamiento Organizacional</b></div>
+        <div class="mesa">
+          <div class="mesaopt on"><input type="checkbox" checked> 11/11/2026 · 08:00 · Aula 2</div>
+          <label class="cond">Condición
+            <select class="cond-sel">
+              <option value="regular" selected>REGULAR</option>
+              <option value="previa">PREVIA</option>
+              <option value="completar_estudio">COMPLETAR ESTUDIO</option>
+              <option value="equivalencia">EQUIVALENCIA</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="materia sel" data-sid="s-tic3">
+        <div class="top"><b>Tecnología de la Información y Comunicación 3</b></div>
+        <div class="mesa">
+          <div class="mesaopt on"><input type="checkbox" checked> 13/11/2026 · 14:00 · Laboratorio</div>
+          <label class="cond">Condición
+            <select class="cond-sel">
+              <option value="regular">REGULAR</option>
+              <option value="previa" selected>PREVIA</option>
+              <option value="completar_estudio">COMPLETAR ESTUDIO</option>
+              <option value="equivalencia">EQUIVALENCIA</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="materia sel" data-sid="s-sic1">
+        <div class="top"><b>Sistema de Información Contable 1</b></div>
+        <div class="mesa">
+          <div class="mesaopt on"><input type="checkbox" checked> 05/11/2026 · 08:00 · Aula 1</div>
+          <label class="cond">Condición
+            <select class="cond-sel">
+              <option value="regular" selected>REGULAR</option>
+              <option value="previa">PREVIA</option>
+              <option value="completar_estudio">COMPLETAR ESTUDIO</option>
+              <option value="equivalencia">EQUIVALENCIA</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="materia off">
+        <div class="top"><b>Teoría y Gestión de las Organizaciones 1</b><span class="chip warn">Sin fecha</span></div>
+        <p class="muted" style="margin:6px 0 0">Sin fecha cargada: la define la escuela (RB-17).</p>
+      </div>
+
+      <div class="materia off">
+        <div class="top"><b>Matemática</b><span class="chip warn">Sin fecha</span></div>
+        <p class="muted" style="margin:6px 0 0">Sin fecha cargada.</p>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>Resumen</h3>
+        <table>
+          <thead><tr><th>Materia</th><th>Fecha y horario</th><th>Condición</th></tr></thead>
+          <tbody id="resumen-body"></tbody>
+        </table>
+        <p class="aviso-mezcla oculto" id="aviso-mezcla">Vas a generar 2 permisos de examen (uno por condición) → RB-18.</p>
+        <p class="muted" style="margin:8px 0 0">La condición la elegís vos al inscribirse: una por
+        materia, por defecto REGULAR (D15); el admin solo puede corregirla. Cada grupo de condiciones
+        genera su permiso (RB-18). Máximo 6 materias por permiso (RB-13).</p>
+        <button class="btn" id="btn-confirmar">Confirmar inscripción</button>
+        <p class="confirm-msg oculto" id="confirm-msg"></p>
+        <button class="btn ghost oculto" id="btn-ver-permisos" data-go="permisos">Ver mis permisos</button>
+      </div>
+    </div>
+    <nav class="tabbar" data-tabs="alumno">
+      <button data-go="home"><span class="ico">🏠</span>Inicio</button>
+      <button class="on" data-go="inscripcion"><span class="ico">➕</span>Inscribir</button>
+      <button data-go="permisos"><span class="ico">📄</span>Permisos</button>
+      <button data-go="perfil"><span class="ico">👤</span>Perfil</button>
+    </nav>
+  </section>
+
+  <!-- ======================= PERMISOS ======================= -->
+  <section id="permisos" class="vista oculto">
+    <div class="topbar"><h2>Mis permisos</h2><small>Historial de permisos emitidos (RB-09)</small></div>
+    <div class="body">
+      <div class="permiso">
+        <div class="row">
+          <div><b>Permiso N° 0042</b><div class="muted">Generado 28/09/2026</div></div>
+          <span class="chip ok">Regular</span>
+        </div>
+        <table style="margin-top:8px">
+          <tr><th>Asignatura</th><th>Fecha</th></tr>
+          <tr><td>Programación de las Compras y Ventas</td><td>03/11/2026</td></tr>
+          <tr><td>Sistema de Información Contable 1</td><td>05/11/2026</td></tr>
+          <tr><td>Administración y Gestión de RRHH</td><td>10/11/2026</td></tr>
+          <tr><td>Historia</td><td>12/11/2026</td></tr>
+        </table>
+        <div class="mini">LIBRO y FOLIO los carga la escuela · el PDF es borrador hasta la firma del Secretario (RB-14/RB-15)</div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn small ghost">Descargar PDF</button>
+          <button class="btn small subtle">Ver</button>
+        </div>
+      </div>
+
+      <div class="permiso">
+        <div class="row">
+          <div><b>Permiso N° 0031</b><div class="muted">Generado 02/05/2026</div></div>
+          <span class="chip">Previa</span>
+        </div>
+        <table style="margin-top:8px">
+          <tr><th>Asignatura</th><th>Fecha</th></tr>
+          <tr><td>Química</td><td>14/05/2026</td></tr>
+          <tr><td>Matemática</td><td>16/05/2026</td></tr>
+        </table>
+        <div class="row" style="margin-top:10px">
+          <button class="btn small ghost">Descargar PDF</button>
+          <button class="btn small subtle">Ver</button>
+        </div>
+      </div>
+
+      <div class="card muted">
+        Cada permiso imprime <b>una sola copia</b> arriba, con el título dinámico
+        «PERMISO DE EXAMEN - Alumno Regular» (D8/D9). Si tuvieras materias con condiciones
+        distintas, serían <b>dos permisos</b> (RB-18).
+      </div>
+    </div>
+    <nav class="tabbar" data-tabs="alumno">
+      <button data-go="home"><span class="ico">🏠</span>Inicio</button>
+      <button data-go="inscripcion"><span class="ico">➕</span>Inscribir</button>
+      <button class="on" data-go="permisos"><span class="ico">📄</span>Permisos</button>
+      <button data-go="perfil"><span class="ico">👤</span>Perfil</button>
+    </nav>
+  </section>
+
+  <!-- ======================= PERFIL ======================= -->
+  <section id="perfil" class="vista oculto">
+    <div class="topbar"><h2>Perfil</h2><small>Maria Soledad Pérez</small></div>
+    <div class="body">
+      <div class="card">
+        <h3>Datos que no podés editar</h3>
+        <label>D.N.I.</label><input class="ro" value="38.456.789" readonly>
+        <label>Nombre</label><input class="ro" value="María Soledad" readonly>
+        <label>Apellido</label><input class="ro" value="Pérez" readonly>
+        <p class="muted" style="margin:8px 0 0">Los corrige el admin (RB-08).</p>
+      </div>
+      <div class="card">
+        <h3>Datos editables</h3>
+        <label>Tecnicatura</label>
+        <select><option>Gestión Organizacional</option><option>Tecnología de los Alimentos</option></select>
+        <label>Dirección</label><input value="Av. Bolivia 1234">
+        <label>Correo</label><input value="maria.perez@correo.com">
+        <label>Teléfono</label><input value="376 412-3456">
+        <p class="muted" style="margin:8px 0 0">Para guardar te pedimos contraseña o código al correo (RB-06).</p>
+        <button class="btn ghost">Guardar cambios</button>
+      </div>
+      <div class="card">
+        <h3>Contraseña</h3>
+        <label>Contraseña actual</label><input type="password">
+        <label>Nueva contraseña</label><input type="password">
+        <label>Repetir nueva contraseña</label><input type="password">
+        <button class="btn subtle">Cambiar contraseña</button>
+        <hr class="divider">
+        <button class="btn subtle" style="color:var(--danger)">Cerrar sesión</button>
+      </div>
+    </div>
+    <nav class="tabbar" data-tabs="alumno">
+      <button data-go="home"><span class="ico">🏠</span>Inicio</button>
+      <button data-go="inscripcion"><span class="ico">➕</span>Inscribir</button>
+      <button data-go="permisos"><span class="ico">📄</span>Permisos</button>
+      <button class="on" data-go="perfil"><span class="ico">👤</span>Perfil</button>
+    </nav>
+  </section>
+
+  <!-- ======================= ADMIN ======================= -->
+  <section id="admin" class="vista oculto">
+    <div class="topbar"><h2>Administración</h2><small>Panel del admin · todo queda en audit_log (RB-10)</small></div>
+    <div class="body">
+
+      <div class="stat">
+        <div class="k"><b>418</b><span>Alumnos</span></div>
+        <div class="k"><b>263</b><span>Inscripciones</span></div>
+        <div class="k"><b>47</b><span>Permisos</span></div>
+      </div>
+
+      <div class="card">
+        <div class="seg" id="admintabs">
+          <button class="on" data-atab="alumnos">Alumnos</button>
+          <button data-atab="inscripciones">Inscripciones</button>
+          <button data-atab="mesas">Mesas</button>
+          <button data-atab="permisos">Permisos</button>
+          <button data-atab="usuarios">Usuarios</button>
+        </div>
+      </div>
+
+      <!-- admin: alumnos -->
+      <div class="atab" data-pane="alumnos">
+        <div class="card">
+          <label>Buscar</label>
+          <input placeholder="D.N.I. · apellido · nombre · tecnicatura · año">
+          <div class="seg" style="margin-top:8px">
+            <button class="on">Todas</button><button>Alimentos</button><button>Gestión</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><b>PÉREZ, María Soledad</b><span class="chip ok">Activo</span></div>
+          <p class="muted" style="margin:6px 0 0">DNI 38.456.789 · Gestión Org. · 3° año · 4 inscripciones</p>
+          <div class="row" style="margin-top:10px">
+            <button class="btn small ghost">Ver ficha</button>
+            <button class="btn small subtle">Editar</button>
+            <button class="btn small subtle">Contraseña</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><b>GONZALEZ, Lucía</b><span class="chip ok">Activo</span></div>
+          <p class="muted" style="margin:6px 0 0">DNI 41.234.567 · Alimentos · 5° año · 6 inscripciones</p>
+          <div class="row" style="margin-top:10px">
+            <button class="btn small ghost">Ver ficha</button>
+            <button class="btn small subtle">Editar</button>
+            <button class="btn small subtle">Contraseña</button>
+          </div>
+        </div>
+        <div class="card muted">
+          El admin es quien puede cambiar <b>D.N.I., nombre y apellido</b>, dar de baja y resetear
+          contraseñas. El alumno no puede hacer nada de eso (RB-08).
+        </div>
+      </div>
+
+      <!-- admin: inscripciones -->
+      <div class="atab oculto" data-pane="inscripciones">
+        <div class="card">
+          <label>Filtros</label>
+          <div class="seg">
+            <button class="on">Gestión</button><button>Alimentos</button>
+            <button>3°</button><button>5°</button><button>Regular</button><button>Previa</button>
+          </div>
+        </div>
+        <div class="card">
+          <table>
+            <tr><th>Alumno</th><th>Asignaturas</th><th>Condición</th></tr>
+            <tr><td>PÉREZ, María Soledad</td><td>4</td><td><span class="chip ok">Regular</span></td></tr>
+            <tr><td>GONZALEZ, Lucía</td><td>6</td><td><span class="chip">Equivalencia</span></td></tr>
+            <tr><td>RIVEROS, Diego</td><td>3</td><td><span class="chip warn">Completar estudio</span></td></tr>
+          </table>
+          <p class="muted" style="margin:10px 0 0">La condición la elige <b>cada alumno</b> al
+          inscribirse: una por materia, por defecto REGULAR (D15). Acá solo se <b>corrige</b> (RB-04).
+          Anular inscripción exige motivo.</p>
+          <button class="btn ghost" style="margin-top:8px">Corregir la condición (el alumno la eligió)</button>
+        </div>
+      </div>
+
+      <!-- admin: mesas -->
+      <div class="atab oculto" data-pane="mesas">
+        <div class="card">
+          <div class="row"><b>Sistema externo de fechas</b><span class="chip ok">Importada ✅</span></div>
+          <p class="muted" style="margin:6px 0 0">Última sincronización: 28/09/2026 08:15 · 153 materias, 96 con fecha y horario cargados.</p>
+          <button class="btn ghost">Sincronizar ahora</button>
+        </div>
+        <div class="card">
+          <div class="row"><b>Teoría y Gestión de las Organizaciones 1</b><span class="chip warn">Sin fecha ⚠</span></div>
+          <p class="muted" style="margin:6px 0 0">La sync no trajo la fecha: se carga a mano, una sola mesa por materia (RB-17 / D14).</p>
+          <label>Fecha</label><input placeholder="dd/mm/aaaa">
+          <label>Horario de inicio</label><input placeholder="08:00">
+          <button class="btn">Forzar fecha y horario</button>
+        </div>
+        <div class="card muted">
+          Solo se puede inscribir dentro de la <b>ventana de inscripción</b> abierta de la mesa (RB-12).
+        </div>
+      </div>
+
+      <!-- admin: permisos -->
+      <div class="atab oculto" data-pane="permisos">
+        <div class="card">
+          <div class="row"><b>Permiso N° 0042</b><span class="chip ok">Regular</span></div>
+          <p class="muted" style="margin:6px 0 0">PÉREZ, María Soledad · 4 asignaturas · generado 28/09/2026</p>
+          <table style="margin-top:8px">
+            <tr><th>Asignatura</th><th>LIBRO</th><th>FOLIO</th></tr>
+            <tr><td>Programación de las Compras y Ventas</td><td><input placeholder="—"></td><td><input placeholder="—"></td></tr>
+            <tr><td>Sistema de Información Contable 1</td><td><input placeholder="—"></td><td><input placeholder="—"></td></tr>
+          </table>
+          <p class="muted" style="margin:10px 0 0">LIBRO y FOLIO los carga la escuela (RB-15).</p>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small ghost">Descargar PDF</button>
+            <button class="btn small subtle">Regenerar</button>
+          </div>
+        </div>
+        <div class="card muted">
+          El PDF es un <b>borrador</b>: solo vale con la firma manuscrita del Secretario (RB-14).
+          La app no firma nada.
+        </div>
+      </div>
+
+      <!-- admin: usuarios -->
+      <div class="atab oculto" data-pane="usuarios">
+        <div class="card">
+          <h3>Usuarios</h3>
+          <table>
+            <tr><th>Usuario</th><th>Rol</th><th>Estado</th></tr>
+            <tr><td>admin</td><td>Administrador</td><td><span class="chip ok">Activo</span></td></tr>
+            <tr><td>38456789</td><td>Alumno</td><td><span class="chip ok">Activo</span></td></tr>
+            <tr><td>41234567</td><td>Alumno</td><td><span class="chip warn">Sin verificar correo</span></td></tr>
+          </table>
+          <button class="btn subtle" style="margin-top:10px">Cambiar mi contraseña de admin</button>
+        </div>
+      </div>
+
+    </div>
+    <nav class="tabbar" data-tabs="admin">
+      <button class="on" data-go="admin"><span class="ico">🗂</span>Panel</button>
+      <button data-go="home"><span class="ico">↩</span>Ver como alumno</button>
+    </nav>
+  </section>
+
+</div>
+</div>
+
+<footer>
+  Prototipo · <code>docs/prototipo/prototipo.html</code> · fuente de verdad: <code>docs/diseno.md</code> v3 (RB-01…RB-18, D1…D15)
+</footer>
+
+<script>
+  const vistas = [...document.querySelectorAll('.vista')];
+  function ir(id){
+    vistas.forEach(v => v.classList.toggle('oculto', v.id !== id));
+    document.querySelectorAll('#menu button').forEach(b =>
+      b.classList.toggle('on', b.dataset.go === id));
+    const v = document.getElementById(id);
+    if (v) v.querySelector('.body').scrollTop = 0;
+    if (id === 'recuperar') recPaso(1);   // siempre arranca en el paso 1
+  }
+  // flujo de recuperación: 4 pasos
+  function recPaso(n){
+    document.querySelectorAll('.rec-paso').forEach(c =>
+      c.classList.toggle('oculto', c.dataset.paso !== String(n)));
+    document.getElementById('rec-paso').textContent = n;
+    const b = document.querySelector('#recuperar .body');
+    if (b) b.scrollTop = 0;
+  }
+  // ---- Inscripción: estado por materia (D15) ----
+  // La condición la elige el ALUMNO: una por materia, por defecto REGULAR.
+  const CONDICIONES = {
+    regular: 'REGULAR',
+    previa: 'PREVIA',
+    completar_estudio: 'COMPLETAR ESTUDIO',
+    equivalencia: 'EQUIVALENCIA'
+  };
+  // Límite de materias por condición al INSCRIBIRSE (es_condicion.limite_materias,
+  // analisis.txt): REGULAR hasta 8, PREVIA hasta 3; Completar Estudio y
+  // Equivalencia sin tope. Se valida solo al inscribirse, no al generar el permiso.
+  const LIMITES = { regular: 8, previa: 3, completar_estudio: null, equivalencia: null };
+  const condPorMateria = {};   // subjectId -> condición elegida
+
+  function filasInscripcion(){
+    return [...document.querySelectorAll('#inscripcion .materia[data-sid]')];
+  }
+  function seleccionadas(){
+    return filasInscripcion().filter(m => {
+      const cb = m.querySelector('.mesaopt input');
+      return cb && cb.checked;
+    });
+  }
+  function condicionesSeleccionadas(){
+    return [...new Set(seleccionadas().map(m => condPorMateria[m.dataset.sid] || 'regular'))];
+  }
+  // Recalcula contador, resumen (materia + fecha/horario + condición) y el aviso de mezcla.
+  function actualizar(){
+    // 1) habilita/deshabilita cada selector: solo si la fila está marcada (D15)
+    filasInscripcion().forEach(m => {
+      const sel = m.querySelector('.cond-sel');
+      if (!sel) return;
+      const cb = m.querySelector('.mesaopt input');
+      const soloLectura = m.dataset.existing === '1';   // ya inscripta
+      sel.disabled = !cb.checked || soloLectura;
+      condPorMateria[m.dataset.sid] = sel.value;
+    });
+    // 2) resumen con las materias elegidas: materia + fecha/horario + condición
+    const lista = seleccionadas().map(m => {
+      return {
+        nombre: m.querySelector('b').textContent.trim(),
+        mesa: m.querySelector('.mesaopt').textContent.trim(),
+        cond: condPorMateria[m.dataset.sid] || 'regular'
+      };
+    });
+    const txt = document.getElementById('contador-txt');
+    const bar = document.getElementById('contador-bar');
+    if (txt) txt.textContent = lista.length + ' de 6 asignaturas';
+    if (bar) bar.style.width = Math.min(100, Math.round(lista.length / 6 * 100)) + '%';
+    const cuerpo = document.getElementById('resumen-body');
+    if (cuerpo){
+      cuerpo.innerHTML = lista.length
+        ? lista.map(f => '<tr><td>' + f.nombre + '</td><td>' + f.mesa + '</td><td>' +
+            CONDICIONES[f.cond] + '</td></tr>').join('')
+        : '<tr><td colspan="3" class="muted">Todavía no elegiste ninguna materia.</td></tr>';
+    }
+    const distintas = condicionesSeleccionadas();
+    const aviso = document.getElementById('aviso-mezcla');
+    if (aviso) aviso.classList.toggle('oculto', distintas.length < 2);
+    return { lista, distintas };
+  }
+  // Un Permiso de Examen por condición (RB-18 / D15).
+  function confirmar(){
+    const estado = actualizar();
+    const msg = document.getElementById('confirm-msg');
+    const ver = document.getElementById('btn-ver-permisos');
+    if (!msg) return;
+    // Límite de materias por condición: se valida AL INSCRIBIRSE (8/3).
+    const cuenta = {};
+    estado.lista.forEach(f => { cuenta[f.cond] = (cuenta[f.cond] || 0) + 1; });
+    const excedidas = Object.keys(cuenta).filter(c =>
+      LIMITES[c] !== null && cuenta[c] > LIMITES[c]);
+    if (!estado.lista.length){
+      msg.textContent = 'Elegí al menos una materia antes de confirmar la inscripción.';
+    } else if (excedidas.length){
+      msg.textContent = 'No se pudo inscribir: ' + excedidas.map(c =>
+        CONDICIONES[c] + ' admite hasta ' + LIMITES[c] + ' materias y elegiste ' +
+        cuenta[c]).join(' · ') + '. Desmarcá materias o cambiá la condición.';
+      msg.classList.remove('oculto');
+      if (ver) ver.classList.add('oculto');
+      return;
+    } else if (estado.distintas.length <= 1){
+      msg.textContent = 'Confirmado: ' + estado.lista.length + ' materias con condición ' +
+        CONDICIONES[estado.distintas[0]] + ' → se genera 1 Permiso de Examen (PDF, 1 copia en A4).';
+    } else {
+      msg.textContent = 'Confirmado: ' + estado.lista.length +
+        ' materias con condiciones distintas → se generan ' + estado.distintas.length +
+        ' Permisos de Examen (uno por condición: ' +
+        estado.distintas.map(c => CONDICIONES[c]).join(' · ') + ').';
+    }
+    msg.classList.remove('oculto');
+    if (ver) ver.classList.remove('oculto');
+  }
+  filasInscripcion().forEach(m => {
+    const sel = m.querySelector('.cond-sel');
+    condPorMateria[m.dataset.sid] = sel ? sel.value : 'regular';
+  });
+
+  document.addEventListener('change', e => {
+    const sel = e.target.closest('select.cond-sel');
+    if (!sel) return;
+    condPorMateria[sel.closest('.materia').dataset.sid] = sel.value;
+    actualizar();
+  });
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-go]');
+    if (t) { ir(t.dataset.go); return; }
+    const r = e.target.closest('[data-rec]');
+    if (r) { recPaso(+r.dataset.rec); return; }
+    const at = e.target.closest('[data-atab]');
+    if (at){
+      document.querySelectorAll('#admintabs button').forEach(b => b.classList.toggle('on', b === at));
+      document.querySelectorAll('.atab').forEach(p =>
+        p.classList.toggle('oculto', p.dataset.pane !== at.dataset.atab));
+      return;
+    }
+    if (e.target.closest('#btn-confirmar')){ confirmar(); return; }
+    // inscripción: cada materia tiene UNA sola mesa -> se marca/desmarca la materia
+    const mesa = e.target.closest('.mesaopt');
+    if (mesa && !mesa.closest('.materia.off')){
+      const mat = mesa.closest('.materia');
+      const cb = mesa.querySelector('input');
+      cb.checked = !cb.checked;
+      mesa.classList.toggle('on', cb.checked);
+      mat.classList.toggle('sel', cb.checked);
+      let chip = mat.querySelector('.chip');
+      if (cb.checked){
+        if (!chip){
+          chip = document.createElement('span');
+          chip.className = 'chip ok';
+          mat.querySelector('.top').appendChild(chip);
+        }
+        chip.textContent = 'Inscripta';
+      } else if (chip){
+        chip.remove();
+      }
+      e.preventDefault();
+      actualizar();
+      return;
+    }
+    const seg = e.target.closest('.seg button');
+    if (seg && seg.parentElement.id === 'anios'){
+      seg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === seg));
+    }
+    const radio = e.target.closest('.radio');
+    if (radio){
+      radio.parentElement.querySelectorAll('.radio').forEach(r => r.classList.toggle('on', r === radio));
+      radio.querySelector('input').checked = true;
+    }
+  });
+  actualizar();   // pinta contador, resumen y aviso de mezcla al cargar
+
+  // Deep-link por hash: si la URL trae #id de una sección, se muestra al cargar.
+  // Usa la MISMA función ir() que los botones con data-go; el resto no cambia.
+  const inicio = location.hash.slice(1);
+  if (inicio && document.getElementById(inicio) &&
+      document.getElementById(inicio).classList.contains('vista')) ir(inicio);
+</script>
+</body>
+</html>

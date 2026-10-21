@@ -1,0 +1,92 @@
+Para que el desarrollador de SIGME‑M (app mobile) pueda arrancar la app local y probar el login, sigue estos pasos:
+
+1. Preparar el entorno
+	- 1.1 Clona (si todavía no lo has hecho) o descargarlo:
+	   comando 1º: git clone https://github.com/formulariosepetn36-ai/backend-epet-n36.git
+	   comando 2º: cd backend-epet-n36
+	
+	- 1.2  Instala dependencias
+	   python -m pip install --upgrade pip
+           python -m pip install poetry          # o use paq instalado con tu gestor de paquetes
+           poetry install -E dev                 # instala todas las dependencias y la extensión dev
+
+	Nota: Si prefieres usar pip directamente, la lista de dependencias está en pyproject.toml. 
+	Asegúrate de usar la versión Python 3.12 (el fantasma de la dotenv y uvicorn se ven bien allí).
+
+2. Configura el fichero .env
+	Pegas el archivo que te pase en la carpeta raiz, del proyecto
+
+3. ver la base de datos (pero no modificar nada o consultar para agregar o quitar tablas)
+	ir a la pagina: https://console.neon.tech/app/org-odd-bread-99492385/projects
+	loguear con el gmail de formulariosepetn36@gmail.com
+
+4. Arranca el servidor en la terminal, apintando al proyecto o abrir el proyecto en antigravity y usar su terminal integrada:
+
+	  comando 1: uvicorn app.main:app --reload
+	
+	O, si prefieres el modo de producción (sin recarga automática):
+	  comando 2: uvicorn app.main:app
+
+	El --reload es genial para desarrollo porque recarga automáticamente cada archivo modificado.
+	Cuando el servidor arranca, deberías ver algo parecido a:
+		
+		INFO:     Started server process [xxxx]
+		INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+5. con la consola o con un programa llamado postman podes probar las siguientes URL (endpoints en la jerga informatica)
+
+Introduccion:
+- todo url que comience con "http://127.0.0.1:8000/api/v1/" es la base de los endpoint, luego de la ultima barra viene el modulo
+especifico a usar.
+- los metodos http son los siguientes:
+	- GET -> sirve para obtener datos
+	- POST -> para impactar datos a la bd, exige cabecera header, con o sin credencial y body con el formato JSON ({clave: valor} entre llaves) 
+        - PUT / PATCH -> para editar los daton de un registro de la bd, exige cabecera con o sin credencial, body con los datos a modificar y el id del registro a modificar
+	- DELETE -> para borrar registros de la bd (logica o fisicamente), exige la cabecera con o sin credencial y el ID del registro a eliminar.
+
+Prueba el “login” con Postman / curl
+A. Login – crea un usuario en la BD (por ejemplo, con python scripts/setup_user.py o manualmente en SQLite)  
+curl -X POST http://127.0.0.1:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"directora","password":"clave-de-12-caracteres","modulo":"sigme_mobile"}'
+→ 200 OK con { "access": "...", "refresh": "..." }
+
+B. Recurso protegido  
+curl -X GET http://127.0.0.1:8000/api/v1/auth/yo \
+  -H "Authorization: Bearer <access_token>"
+→ 200 OK con { "id": "...", "username":"directora", ... }
+
+C. Refresh  
+curl -X POST http://127.0.0.1:8000/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh":"<refresh_token>"}'
+→ 200 OK con nuevo access + refresh.
+
+D. Logout  
+curl -X POST http://127.0.0.1:8000/api/v1/auth/logout \
+  -H "Authorization: Bearer <access_token>"
+→ 204 No Content.
+
+E. Logout‑all (para cerrar todas las sesiones)  
+curl -X POST http://127.0.0.1:8000/api/v1/auth/logout-all \
+  -H "Authorization: Bearer <access_token>"
+→ 204 No Content.
+
+6. Para la app móvil (sigme‑m)
+	1. Endpoint base: https://<tu-dominio>/api/v1/auth/
+	2. Login: usar el endpoint /login con el módulo "sigme_mobile".  
+	3. Mantener el usuario: cachear el access por unos 15 min (tiempo de expiración).  
+	4. Refresh: antes de que el token expire, llamar a /refresh con el último refresh.  
+	5. Logout: llamar a /logout cuando el usuario se desconecte.
+	
+	Si tu backend está en local, tendrás que usar la IP pública o localhost(127.0.0.1:8000) para que la app móvil pueda 
+	alcanzarlo (usando el simulador/emulador o una VPN). En producción, simplemente pon el dominio que vayas a usar.
+
+7. Extra: revisar logs y errores
+	- La app ya lleva un logging configurado (app/core/logging.py).  
+	- Los logs del servidor se ve en consola (útil para ver los códigos de error que tu móvil enviará).  
+	- Para depurar un endpoint, puedes usar la consola de FastAPI: el navegador abrirá http://127.0.0.1:8000/docs con la 
+	documentación OpenAPI; ahí puedes probar los endpoints directamente.
+
+
+¡Listo! Ahora el desarrollador del SIGME-M puede arrancar tu API localmente, probar el login, refrescar token y cerrar sesión sin problemas. Si algo falla, revisa los logs y verifica que la variable DATABASE_URL (o tu BD) está bien configurada. 🚀

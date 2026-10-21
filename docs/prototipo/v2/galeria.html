@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rediseño v2 — App de Inscripción a Mesas de Examen</title>
+<style>
+  :root{--ink:#111827;--sec:#6B7280;--line:#E5E7EB;--acc:#2563EB;--sub:#F9FAFB}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--sub);color:var(--ink);
+       font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       font-size:15px;line-height:1.5}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:24px}
+  h1{margin:0 0 6px;font-size:24px;font-weight:700}
+  header p{margin:0;color:var(--sec);font-size:13px}
+  nav{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);
+      padding:10px 24px;display:flex;gap:8px;flex-wrap:wrap}
+  nav a{font-size:12px;font-weight:500;text-decoration:none;color:var(--sec);
+        background:var(--sub);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+  nav a:hover{color:#fff;background:var(--acc);border-color:var(--acc)}
+  main{padding:24px;max-width:900px;margin:0 auto}
+  section{background:#fff;border:1px solid var(--line);border-radius:12px;
+          padding:20px;margin-bottom:24px}
+  section h2{margin:0 0 2px;font-size:20px;font-weight:600}
+  .sub{color:var(--sec);font-size:13px;margin:0 0 8px}
+  .meta{font-size:11px;font-weight:500;color:var(--sec);letter-spacing:.3px;
+        text-transform:uppercase;margin:0 0 16px}
+  .meta span{display:inline-block;background:var(--sub);border:1px solid var(--line);
+             border-radius:6px;padding:2px 8px;margin-right:6px;text-transform:none}
+  img{width:100%;max-width:402px;display:block;margin:0 auto;
+      border:1px solid var(--line);border-radius:8px}
+  footer{max-width:900px;margin:0 auto;padding:8px 24px 40px;color:var(--sec);font-size:13px}
+  footer h3{font-size:13px;color:var(--ink);margin:18px 0 6px}
+  footer ul{margin:0;padding-left:18px}
+  footer li{margin-bottom:4px}
+  code{background:var(--sub);border:1px solid var(--line);border-radius:4px;
+       padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rediseño v2 — App de Inscripción a Mesas de Examen</h1>
+  <p>E.P.E.T. N°36 · 8 pantallas · capturas a 2× desde <code>docs/prototipo/pantallas.op</code> · exportadas el 15/10/2026</p>
+</header>
+
+<nav>
+  <a href="#p1">1 Login</a>
+  <a href="#p2">2 Recuperar acceso</a>
+  <a href="#p3">3 Crear cuenta</a>
+  <a href="#p4">4 Home</a>
+  <a href="#p5">5 Inscripción</a>
+  <a href="#p6">6 Mis permisos</a>
+  <a href="#p7">7 Perfil</a>
+  <a href="#p8">8 Panel admin</a>
+</nav>
+
+<main>
+
+<section id="p1">
+  <h2>1 · Login</h2>
+  <p class="sub">Iniciar sesión — Acceso de alumnos y administración</p>
+  <p class="meta"><span>alto 724</span><span>804×1448 px</span><span>63 961 B</span></p>
+  <img src="01-login.png" alt="Pantalla 1 — Login" width="402">
+</section>
+
+<section id="p2">
+  <h2>2 · Recuperar acceso</h2>
+  <p class="sub">Recuperar acceso — Flujo en 4 pasos · RB-19</p>
+  <p class="meta"><span>alto 1667</span><span>804×3334 px</span><span>154 618 B</span></p>
+  <img src="02-recuperar-acceso.png" alt="Pantalla 2 — Recuperar acceso" width="402">
+</section>
+
+<section id="p3">
+  <h2>3 · Crear cuenta</h2>
+  <p class="sub">Crear cuenta — Registro libre · un D.N.I. = una cuenta (RB-01 / RB-16)</p>
+  <p class="meta"><span>alto 1096</span><span>804×2192 px</span><span>104 857 B</span></p>
+  <img src="03-crear-cuenta.png" alt="Pantalla 3 — Crear cuenta" width="402">
+</section>
+
+<section id="p4">
+  <h2>4 · Home alumno</h2>
+  <p class="sub">Hola, María — Gestión Organizacional · 3° año</p>
+  <p class="meta"><span>alto 1036</span><span>804×2072 px</span><span>109 067 B</span></p>
+  <img src="04-home-alumno.png" alt="Pantalla 4 — Home alumno" width="402">
+</section>
+
+<section id="p5">
+  <h2>5 · Inscripción a mesa</h2>
+  <p class="sub">Inscripción a mesa — Solo materias de tu tecnicatura (RB-02)</p>
+  <p class="meta"><span>alto 2093</span><span>804×4186 px</span><span>226 881 B</span></p>
+  <img src="05-inscripcion-materia.png" alt="Pantalla 5 — Inscripción a materia" width="402">
+</section>
+
+<section id="p6">
+  <h2>6 · Mis permisos</h2>
+  <p class="sub">Mis permisos — Historial de permisos emitidos (RB-09)</p>
+  <p class="meta"><span>alto 1139</span><span>804×2278 px</span><span>115 090 B</span></p>
+  <img src="06-mis-permisos.png" alt="Pantalla 6 — Mis permisos" width="402">
+</section>
+
+<section id="p7">
+  <h2>7 · Perfil</h2>
+  <p class="sub">Perfil — María Soledad Pérez</p>
+  <p class="meta"><span>alto 1584</span><span>804×3168 px</span><span>132 750 B</span></p>
+  <img src="07-perfil.png" alt="Pantalla 7 — Perfil" width="402">
+</section>
+
+<section id="p8">
+  <h2>8 · Panel admin</h2>
+  <p class="sub">Administración — Panel del admin · todo queda en audit_log (RB-10)</p>
+  <p class="meta"><span>alto 1454</span><span>804×2908 px</span><span>144 398 B</span></p>
+  <img src="08-panel-admin.png" alt="Pantalla 8 — Panel de administración" width="402">
+</section>
+
+</main>
+
+<footer>
+  <h3>Cómo ver las pantallas editables</h3>
+  <ul>
+    <li>Archivo fuente: <code>docs/prototipo/pantallas.op</code> (OpenPencil → abrir archivo → 8 frames de nivel 1).</li>
+    <li>Si guardás desde el editor, se vuelve a sumar un frame ajeno al documento: re-ejecutar
+        <code>quitar_ajeno.py</code> antes de re-exportar.</li>
+    <li>Capturas regenerables con <code>op export-frames</code>; verificación de paridad con
+        <code>paridad.py</code> (72/72 textos y reglas clave).</li>
+  </ul>
+  <h3>Reglas que definen el diseño (fuente de verdad)</h3>
+  <ul>
+    <li><code>docs/prototipo/prototipo.html</code> — textos funcionales, límites 8/3 por condición, D14, D15, RB-13/18/19.</li>
+    <li><code>docs/diseno.md</code> — decisiones D1–D15 y reglas RB-01..RB-19.</li>
+    <li><code>docs/modelo/prototipo-bd-adaptado.txt</code> — modelo de datos sin PDFs (RB-09: se descargan al celular).</li>
+  </ul>
+</footer>
+
+</body>
+</html>

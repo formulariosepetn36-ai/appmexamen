@@ -1,0 +1,14 @@
+# Secrets: el .env real nunca se commitea (analisis.txt 0).
+.env
+.env.*
+
+# Dependencias y cachés
+node_modules/
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# Backend: repositorio propio con su propio remoto
+# (github.com/formulariosepetn36-ai/backend-epet-n36) — se clona aparte
+# según "Instructivos para bajar y ejecutar el backend.txt".
+backend-epet-n36-main/

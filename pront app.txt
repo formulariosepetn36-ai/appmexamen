@@ -1,0 +1,204 @@
+necesito que trabajes como diseñador senidor de un sistema donde se pueda registre alumnos
+ de 2 tecnicaturasde las Escuela Secundaria E.P.E.T. N°36 Posadas-Misiones para que se puedan inscribir en mesa de examen. 
+Esto debe ser una aplicacion para celular lo cual despues estara conectado a una base de datos(luego asiganaremos el BAker o bD)
+
+
+objetivo:
+primer pantalla de logeo para ingreso de usuario o agregar usuario si no tiene,
+debe tenes un acceso por usuario con contraseña, que el alumno pueda modificar su contraseña o perfil de Datos, constatando su identidad a traves del correo. debe tener para que el adminitrador general pueda modificar la contraseña
+contraseña y usuario de adminitrador: admin, admin; modificable por el administrador.
+Primer objetivo: 
+	el alumno al bajar la aplicacion debe poder registraser con los datos:( Nombre, Apellido, D.N.I., Correo, Telefono y Tecnicatura: (TECNICATURA EN TECNOLOGÍA DE LOS ALIMENTOS,TECNICATURA EN GESTIÓN ORGANIZACIONAL))
+
+Segundo Objetivo: Generar un formulario donde se pueda modificar los datos del alumnos.
+Datos de alumnos.
+	mostrar:
+		D.N.I
+		Nombre 
+		Apellido
+
+	opcion de Modificacion (verificacion de Usuario por contraseña o correo)	
+		Tenicatura
+		Direccion
+		Correo
+		Telefono
+
+	Opcion de Modificacion solo con verificion contraseña (genera la visualicion para pantalla de cambio de contraseña con : contraseña Anterior, Nueva Contraseña, Repita la Nueva Contraseña)
+		Contraseña
+
+Tercer objetivo: 
+debe poder busacar e inscribir los alumnos con sus deferentes materias, estos alumnos se dividen en 2 sectores. Tambien debe poder clasificarse entre:(REGULAR, PREVIA, COMPLETAR ESTUDIO, EQUILAVENCIA),
+se debe pode incribir en varias materias,
+
+TECNICATURA EN TECNOLOGÍA DE LOS ALIMENTOS con las materias:
+MATERIAS 1° AÑO:
+	Lengua
+	Lengua Extrajera
+	Geografia
+	Historia
+	Formacion Etica y Ciudadana 
+	Educacion Fisica
+	Representacion Grafica
+	EDI: Informatica
+	Matematica
+	Biologia
+	Tecnologia
+	Tecnologia de los Alimentos 1
+	Nutricion y Habitos Alimentarios
+MATERIAS 2° AÑO 
+	Lengua
+	Lengua Extrajera
+	Geografia
+	Historia
+	Formacion Etica y Ciudadana 
+	Educacion Fisica
+	Representacion Grafica 2
+	Matematica
+	Biologia Humana
+	Tecnologia
+	Fisica 1
+	Tecnologia de los Alimentos 2
+	Laboratorio
+MATERIAS 3° AÑO
+	Lengua y Literatura
+	Lengua Extranjera
+	Geografia Economia
+	Historia
+	Etica y Derecho Laboral
+	Educacion Fisica
+	Matematica
+	Quimica General y Organica
+	Proyecto Tecnologico
+	Fisica 2
+	Toxicologia de los Alimentos
+	Metodos y Tecnicas Instrumentales
+	Emisiones
+	TICS
+MATERIAS 4° AÑO 
+	Lengua y Literatura
+	Lengua Extranjera Tecnica
+	Educacion Fisica
+	Etica y Deontologia Profesional
+	Analisis 1
+	Biologia Evolutiva
+	Microbioligia General
+	Termdinamica y Fisica-Quimica
+	Bromatologia
+	Economia
+	Problematica Ambiental
+	Composicion de los Alimentos
+	Produccion y conversacion Frutihorticola
+MATERIAS 5° AÑO
+	Lengua y Literatura
+	Lengua Extranjera Tecnica
+	Educacion Fisica
+	Analisis 2
+	Quimica Biologica
+	Procesos Productivos
+	Organizacion y Gestion de la Produccion
+	Microbiogia de los Alimentos
+	Proyecto de Emprendimiento
+	Materiales Aplicados a la Industria de los Alimentos
+	Formacion en Ambiente de Trabajo
+	Higiene y Seguridad Industrial
+MATERIAS 6° AÑO
+	Lengua Extranjera Tecnica
+	Operaciones Unitarias
+	Quimica Analitica
+	Tecnolodia de Control
+	Analisis de los Alimentos
+	Microemprendimiento Productivo
+	Procesos Complementarios a la Industria de los Alimentos
+	Legislacion Sanitaria y Alimentaria
+	Gestion de Calidad
+	Biotecnologia de Alimentos
+
+TECNICATURA EN GESTIÓN ORGANIZACIONAL:
+MATERIA 1 AÑO
+	Lengua
+	Lengua Extranjera
+	Geografia
+	Historia
+	Formacion Etica y Ciudadana
+	Educacion Fisica
+	Biologia
+	Matematica
+	Tecnologia
+	Dibujo Tecnico
+	Tecnologia de la Infromacion y Comunicacion 1
+	Introduccion a la gestion Organizacional
+	Introduccion ala Practica Comercial
+	Diseño de Proyectos
+MATERIA 2 AÑO 
+	Lengua
+	Lengua Extranjera
+	Biologia
+	Geografia
+	Formacion Etica y Ciudadana
+	Educacion Fisica
+	Fisica
+	Matematica
+	Tecnologia
+	Dibujo Tecnico
+	Tecnologia de la Infomacion y Comunicacion 2
+	Gestion y Practica Organizacional
+	Practica Comercial
+	Emprendimientos Comerciales
+MATERIA 3 AÑO
+	Lengua
+	Lengua Extranjera
+	Geografia
+	Historia
+	Formacion Etica y Ciudadana
+	Educacion Fisica
+	Quimica
+	Matematica
+	Sisitema de Infomacion Contable 1
+	Teoria y gestion de las Organizaciones 1
+	Tecnoligia de la Informacion y Comunicacion 3
+	Comunicacion y Comportamiento Organizacional
+	Programacion de las Compras y Ventas
+	Administracion y Gestion de RRHH
+MATERIA 4 AÑO
+	Lengua
+	Lengua Extranjera
+	Educacion Fisica
+	Matematica
+	Sistema de Infomacion Contable 2
+	Teoria de Gestion de las Organizaciones 2
+	Economia 1
+	Derecho Economico
+	Sociologia de las Organizaciones
+	Operaciones de Compra y Venta
+	Operaciones de Ingreso y Egresos de Fondos
+	Gestion de Clientes
+	Marketing
+	Teoria y Practica Impositiva 1
+MATERIA 5 AÑO
+	Lengua
+	Lengua Extranjera
+	Educacion Fisica
+	EDI: Etica
+	Matematica Financiera
+	Sistema de Informacion Contable 3
+	Proyecto Gestion de Microemprendimiento
+	Economia 2
+	Derecho Laboral
+	Contabilidad Aplicada 1	
+	Produccion y Costo
+	Relaciones Humanas
+	Liquidacion y Registracion de las Remuneraciones
+	Teoria y Practica Impositiva 2 
+	Gestion Financiera y Fuentes de Financciacion
+MATERIA 6 AÑO
+	Lengua Extrajera
+	EDI: Procesos Productivos
+	EDI: Higiene y Seguridad
+	Contabilidad Aplicada 2
+	Estados Contables
+	Integracion
+	Contextualizacion
+
+cuarto objetivo cuatro:
+	Luego de la inscripcion el alumno recibira un permiso de examen el cual debe modificarse segun la inscripcion y quedar en un repositorio para que pueda volver a descargarlo, formato PDF ( paso modelo de Permiso de Examen en Excel)
+	Todos los Datos deben estar guardados en la Base de Datos.
