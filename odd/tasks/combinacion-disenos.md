@@ -382,3 +382,7 @@ listo y podamos manejarnos con una base de datos.
   `44128a5` feat(auth: olvido-clave) en `feat/sdd-4-inscripciones`; app `055a9f7`
   feat(prototipo: recuperación + informe colega). Sin push (queda decisión del
   usuario); informe para envío en `informes/informe-para-colega-recuperacion-clave.md`.
+- **Rebase (2026-11-05):** las 2 commits de L15 se rebasearon sobre la punta
+  remota `d3beed0` (SDD-5 reportes) — cero conflicto (sin solape de archivos).
+  Nuevos hashes: `852c57e` (fix alembic) y `48e1b72` (olvido-clave); reemplazan
+  a 634777e/44128a5. Verificación: 277 passed + ruff limpio. Sin push.
