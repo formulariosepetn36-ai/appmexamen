@@ -11,14 +11,14 @@
 
 | Tema | Estado | Acción de ustedes |
 |---|---|---|
-| Bugs en `0003` y `0004` (sus migraciones) | **Arreglados en nuestra copia local** (sin commitear) | Aplicar los fixes antes de correr en una BD fresca (§5) |
+| Bugs en `0003` y `0004` (sus migraciones) | **Arreglados y commiteados** (`852c57e`, push pendiente) | Aplicar los fixes antes de correr en una BD fresca (§5) |
 | PD-C "recuperación por correo" | **Cerrado por decisión del cliente**: no se hace por email | Leer §2 — cambia lo que ustedes iban a construir |
-| `POST /api/v1/auth/olvido-clave` | **Implementado y testeado en nuestra copia local** (sin commitear) | Revisar y aprobar el contrato (§3) |
+| `POST /api/v1/auth/olvido-clave` | **Implementado, testeado y commiteado** (`48e1b72`, push pendiente) | Revisar y aprobar el contrato (§3) |
 | Vista de pedidos + blanqueo | **Es su parte** (app de escritorio) | §4 — SQL exacto, sin integración nueva si comparten la BD |
 | `/auth/restablecer-clave` | **No se hace** | Reemplazada por `cambiar-clave`, que ya existe |
 | `PATCH /sigme/usuarios/{id}` (su §6.3) | **No hace falta para este flujo** | El blanqueo lo escribe el escritorio directo en la BD |
 
-**Nada de lo de este informe está commiteado todavía** — está en nuestra copia local de `feat/sdd-4-inscripciones`. Avisamos apenas lo autoricen para subirlo.
+**Commiteado en local, sin push todavía**: los fixes (`852c57e`) y el endpoint (`48e1b72`) están en `feat/sdd-4-inscripciones`, rebased sobre su punta `d3beed0` (SDD-5), suite **277 passed** ✅. En GitHub recién aparecerán cuando el cliente autorice el push — avisamos apenas pase.
 
 ---
 
@@ -57,7 +57,7 @@ Consecuencias sobre lo que ustedes iban a hacer:
   - `ip` y `user_agent` del request.
 - **Un solo pedido vigente por usuario** (no duplica filas).
 - **Archivos** (rama `feat/sdd-4-inscripciones`, copia local): `app/features/auth/router.py`, `app/features/auth/schemas.py`, `app/features/auth/service.py`, `tests/unit/test_auth_endpoints.py`.
-- **Verificación:** 5 tests nuevos (RED → GREEN), suite completa **240 passed**, `ruff check` limpio.
+- **Verificación:** 5 tests nuevos (RED → GREEN), suite completa **277 passed** tras el rebase sobre su SDD-5, `ruff check` limpio.
 
 ---
 
@@ -123,7 +123,7 @@ Estado actual de la BD Neon: **`alembic_version = 0004` (head)** + semillas (rol
 
 1. **`main` sigue en el merge del PR #4 (SDD-2)** — verificado hoy con fetch: `feat/sdd-3-mesas` y `feat/sdd-4-inscripciones` están pushadas pero **sin PR**; `sdd-4` ya incluye a `sdd-3`.
 2. **PR #5** (`feat/contrato-endpoints-publicos`): sigue pendiente de resolver (merge o cierre).
-3. Los fixes de §5 y el endpoint de §3 están **sin commitear** en nuestra copia local — no los van a ver en GitHub hasta que el cliente autorice el push.
+3. Los fixes de §5 y el endpoint de §3 están **commiteados en local** (`852c57e` y `48e1b72`, rebased sobre `d3beed0`) — no los van a ver en GitHub hasta que el cliente autorice el push.
 
 ---
 
