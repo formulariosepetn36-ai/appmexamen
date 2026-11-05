@@ -378,3 +378,7 @@ listo y podamos manejarnos con una base de datos.
   usado_en IS NULL AND expira_en > now(), blanquear password_hash y marcar
   usado_en; confirmar que el escritorio comparte esta BD. Nota: Neon free tier
   suspende la compute — el primer arranque tardó ~11 s (ping 2 s expiró).
+- **Commits de L15 (2026-11-05):** backend `634777e` fix(alembic 0003+0004) y
+  `44128a5` feat(auth: olvido-clave) en `feat/sdd-4-inscripciones`; app `055a9f7`
+  feat(prototipo: recuperación + informe colega). Sin push (queda decisión del
+  usuario); informe para envío en `informes/informe-para-colega-recuperacion-clave.md`.
