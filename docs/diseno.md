@@ -54,37 +54,34 @@ PANTALLA DE LOGIN
 ```
 
 ### 3.1.1 Recuperar acceso (sección nueva)
-Flujo en 4 pasos. La identidad se referencia por **D.N.I.** y se valida con un
-código enviado al **correo oficial** del alumno (el que figura en su ficha).
+Flujo en 2 pasos. El usuario se identifica por **usuario o correo**; si la
+cuenta existe recibe un **token opaco** en el correo registrado (decisión
+2026-11-12: restauración automática con verificación por correo).
 
 ```
-1 · IDENTIFICAR
-   ├─ D.N.I.                          (obligatorio → RB-19)
-   ├─ Correo electrónico               (debe coincidir con el registrado)
-   └─ Validar: si D.N.I. y correo no coinciden → error genérico (no filtrar si existe)
-2 · VERIFICAR POR CORREO
-   ├─ Envía un código de 6 dígitos al correo registrado
-   │    ├─ Expira en 15 minutos, un solo uso (RB-07 / RB-19)
-   │    ├─ Reenviar (con cooldown de 60 s)
-   │    └─ 5 intentos fallidos → bloqueo temporal de 15 min
-   └─ Ingresar el código
-3 · NUEVA CONTRASEÑA
-   ├─ Nueva contraseña / Repetir contraseña   (mismas políticas del registro)
-   └─ Guardar → el token queda usado (no se puede reutilizar)
-4 · CONFIRMAR
-   └─ "Contraseña actualizada" → volver al login
+1 · PEDIR EL TOKEN
+   ├─ Usuario o correo                    (identificador)
+   └─ Responde 202 SIEMPRE (anti-enumeración); si hay cuenta y correo,
+      encola el email con el token (RN-051) tras responder
+2 · CREAR CLAVE NUEVA
+   ├─ Token del correo                    (un solo uso, vence en 24 h)
+   ├─ Nueva contraseña / Repetir          (mínimo 12 — §2.5)
+   └─ POST /auth/restablecer-clave
+        ├─ OK → sube token_version, revoca sesiones, marca usado
+        └─ Error único 401 recuperacion-invalida (desconocido/vencido/usado)
 ```
 
 **Reglas de seguridad del flujo:**
-- El mensaje de error es **siempre el mismo** exista o no el D.N.I. / correo:
-  *"No pudimos validar tus datos. Revisá el D.N.I. y el correo."*
-  (así no se descubre qué D.N.I. está registrado — RB-01/RB-19).
-- El correo debe estar **verificado** (`students.email_verified_at`): si no lo está,
-  no se envía código y se pide a un admin que lo verifique a mano (RB-07).
-- El código viaja por `password_resets` (token, `expires_at`, `used_at`) — misma
-  tabla que ya existe en el modelo (§4).
+- La respuesta de `/auth/olvido-clave` es **siempre** `202 {"status":"solicitado"}`
+  exista o no la cuenta (no se descubre qué usuarios están registrados — RB-01).
+- El token en claro viaja **sólo por el correo**; en `us_password_reset` se
+  guarda su hash SHA-256 (PD-04). Un reenvío regenera el token.
+- El token se usa una sola vez (`usado_en`); al blanquear se sube
+  `token_version` y se revocan todas las sesiones (§2.6).
+- El email se encola DESPUÉS de responder (RN-051) y su fallo nunca afecta
+  la respuesta HTTP ni filas de negocio (NFR-034 / EX-21).
 - **El admin no recupera por este flujo**: su contraseña la resetea otro admin
-  (§2) — el D.N.I. de un admin no está en `students`.
+  — el usuario admin no está en el flujo de alumno.
 
 
 ### 3.2 Registro del alumno (Primer objetivo)
@@ -217,12 +214,15 @@ permit_enrollments            (qué materias lleva cada permiso)
        -- en una junction o existe la fila o no (convención junction de analisis.txt 1.9)
        -- Reemplaza al arreglo de ids de la versión anterior, que no era una FK real.
 
-password_resets                (código de recuperación y de verificación de correo)
-  id, user_id → users, token (hash del código de 6 dígitos),
-  purpose (reset_password | verify_email), sent_to (correo destino),
-  attempts (int, máx. 5), expires_at (15 min), used_at,
-       -- Un solo registro activo por usuario+purpose: reenviar invalida el anterior.
-       -- RB-07 / RB-19: un solo uso, expira, 5 intentos → bloqueo 15 min.
+us_password_reset               (pedidos de recuperación de clave — PD-04)
+  id, usuario_id → us_usuario, token_hash (SHA-256 hex del token opaco),
+  ip, user_agent, expira_en (24 h), usado_en, created_at
+       -- Un solo pedido vigente por usuario: un reenvío regenera el token
+       -- e invalida el del correo anterior. El token en claro jamás se
+       -- persiste; sólo viaja por el correo (RB-19 / decisión 2026-11-12).
+       -- RB-07: un solo uso (usado_en), vence en 24 h. Al blanquear se
+       -- sube token_version y se revocan sesiones (§2.6). Sin columna de
+       -- intentos: el error es único (401 recuperacion-invalida).
 
 audit_log                    (trazabilidad)
   id, actor_user_id, action, entity, entity_id, before, after, created_at
@@ -252,7 +252,7 @@ audit_log                    (trazabilidad)
 | RB-16 | **Registro libre**: cualquiera puede darse de alta (no requiere aprobación del admin), pero **un D.N.I. = un alumno = una cuenta** (refuerzo de RB-01). |
 | RB-17 | La **fecha y el horario de la mesa lo asigna un sistema externo** y la app lo importa. Si la app no recibe los datos, el admin puede **cargar / forzar fecha y horario manualmente** (`date_source = manual`). |
 | RB-18 | El permiso se emite **una sola vez por conjunto de materias que compartan condición**; si hay condiciones distintas se generan **dos permisos**. El título del formulario es **dinámico**: *"PERMISO DE EXAMEN - Alumno \<Condición\>"*. |
-| RB-19 | **Recuperar acceso por D.N.I. + correo**: el alumno ingresa su D.N.I. y su correo; ambos deben coincidir con la ficha. Se envía un código de 6 dígitos al correo (expira en 15 min, un solo uso, máximo 5 intentos). El error es **genérico** exista o no la cuenta, para no revelar qué D.N.I. está registrado. |
+| RB-19 | **Recuperar acceso con token por correo** (decisión 2026-11-12, reemplaza al código de 6 dígitos): el usuario ingresa **usuario o correo**; si la cuenta existe recibe un **token opaco** en el correo registrado (24 h, un solo uso, hash SHA-256 en `us_password_reset`). La respuesta es **siempre** `202` (anti-enumeración). Blanquea con `POST /auth/restablecer-clave`; al hacerlo se sube `token_version` y se revocan todas las sesiones. El **admin no** usa este flujo. |
 
 ---
 

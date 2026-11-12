@@ -203,7 +203,7 @@
         <div id="msg-error-login" style="color: var(--danger); font-size: 12px; margin-top: 6px; min-height: 1.2em;"></div>
         <button class="btn ghost" data-go="registro">Crear cuenta</button>
         <hr class="divider">
-        <p class="muted" style="margin:0">¿Olvidaste tu contraseña? Pedí el blanqueo: el administrador del sistema te da una clave temporal para entrar.</p>
+        <p class="muted" style="margin:0">¿Olvidaste tu contraseña? Recuperá el acceso con tu correo: te mandamos un token para crear una clave nueva.</p>
         <button class="btn subtle" data-go="recuperar">Recuperar acceso</button>
       </div>
       <div class="card muted">
@@ -218,30 +218,35 @@
 
   <!-- ======================= RECUPERAR ACCESO ======================= -->
   <section id="recuperar" class="vista oculto">
-    <div class="topbar"><h2>Recuperar acceso</h2><small>Paso <span id="rec-paso">1</span> de 2 · pedido de blanqueo</small></div>
+    <div class="topbar"><h2>Recuperar acceso</h2><small>Paso <span id="rec-paso">1</span> de 2 · recuperación por correo</small></div>
     <div class="body">
 
       <!-- paso 1 -->
       <div class="card rec-paso" data-paso="1">
-        <h3>1 · Pedí el blanqueo</h3>
-        <p class="muted" style="margin:0 0 4px">Ingresá tu usuario, D.N.I. o correo: avisamos al administrador del sistema para que blanquee tu clave.</p>
-        <label>Usuario, D.N.I. o correo</label><input id="input-olvido" class="ico-user" placeholder="38456789 o tu correo">
-        <button id="btn-olvido" class="btn">Pedir blanqueo</button>
+        <h3>1 · Pedí el token</h3>
+        <p class="muted" style="margin:0 0 4px">Ingresá tu usuario o correo: si la cuenta existe te mandamos un token de recuperación (vale 24 horas).</p>
+        <label>Usuario o correo</label><input id="input-olvido" class="ico-user" placeholder="alumno01 o tu correo">
+        <button id="btn-olvido" class="btn">Enviar token</button>
         <div id="msg-error-olvido" style="color: var(--danger); font-size: 12px; margin-top: 6px; min-height: 1.2em;"></div>
         <button class="btn subtle" data-go="login">Volver al login</button>
       </div>
 
       <!-- paso 2 -->
       <div class="card rec-paso oculto" data-paso="2">
-        <h3>2 · Pedido enviado ✅</h3>
-        <p class="muted" style="margin:0 0 6px">Quedó registrado. Cuando el administrador blanquee tu clave te va a dar una <b>clave temporal</b>: ingresá con ella y cambiala desde <b>Perfil → Contraseña</b>.</p>
-        <button class="btn" data-go="login">Volver al login</button>
+        <h3>2 · Creá tu clave nueva</h3>
+        <p class="muted" style="margin:0 0 6px">Revisá tu correo: ahí está el <b>token de recuperación</b>. Pegalo acá junto con tu nueva contraseña (mínimo 12 caracteres). Si no pidió este cambio, ignore el mensaje.</p>
+        <label>Token del correo</label><input id="input-token-rec" class="ico-lock" placeholder="token que llegó a tu correo" autocomplete="one-time-code">
+        <label>Nueva contraseña</label><input id="input-clave-nueva" class="ico-lock" type="password" placeholder="mínimo 12 caracteres">
+        <label>Repetir contraseña</label><input id="input-clave-repetir" class="ico-lock" type="password">
+        <button id="btn-restablecer" class="btn">Restablecer contraseña</button>
+        <div id="msg-error-rest" style="color: var(--danger); font-size: 12px; margin-top: 6px; min-height: 1.2em;"></div>
+        <button class="btn subtle" data-go="login">Volver al login</button>
       </div>
 
       <div class="card muted">
         <b style="color:var(--ink)">Seguridad:</b> la respuesta es siempre la misma exista o no la cuenta,
-        así no se adivina qué usuarios están registrados. El admin <b>no</b> usa este flujo:
-        su contraseña la resetea otro admin.
+        así no se adivina qué usuarios están registrados. El token se usa una sola vez
+        y vence en 24 horas. El admin <b>no</b> usa este flujo: su contraseña la resetea otro admin.
       </div>
     </div>
   </section>
@@ -900,7 +905,17 @@
     return r;
   }
 
+  // Panel admin (sección 7): solo se muestra/entra con usuario administrativo.
+  // Roles sembrados (PD-03): administrador | superadmin; o permiso usuario.gestionar.
+  let esAdmin = false;
+  function actualizarMenuAdmin(){
+    document.querySelectorAll('#menu button[data-go="admin"]').forEach(b =>
+      b.classList.toggle('oculto', !esAdmin));
+  }
+  actualizarMenuAdmin();   // oculto por defecto hasta loguear una cuenta admin
+
   function ir(id){
+    if (id === 'admin' && !esAdmin) id = 'home';  // sin rol admin no entra al panel
     vistas.forEach(v => v.classList.toggle('oculto', v.id !== id));
     document.querySelectorAll('#menu button').forEach(b =>
       b.classList.toggle('on', b.dataset.go === id));
@@ -912,7 +927,7 @@
     if (id === 'perfil') cargarPerfil();
     if (id === 'permisos') cargarPermisos();
   }
-  // flujo de recuperación: 2 pasos (pedido de blanqueo al admin)
+  // flujo de recuperación: 2 pasos (token por correo + clave nueva)
   function recPaso(n){
     document.querySelectorAll('.rec-paso').forEach(c =>
       c.classList.toggle('oculto', c.dataset.paso !== String(n)));
@@ -1405,18 +1420,28 @@
       $btnLogin.textContent = 'Iniciar sesión';
 
       if (resultado.ok) {
-        ir('home');
+        // Panel admin: roles reales desde /auth/yo; si la cuenta es
+        // administrativa, entra directo al panel (copy de la vista login §7).
+        try {
+          const me = await apiGet('/api/v1/auth/yo');
+          esAdmin = (me.roles || []).some(r => r === 'administrador' || r === 'superadmin')
+                 || (me.permisos || []).includes('usuario.gestionar');
+        } catch (e) {
+          esAdmin = false;   // sin /auth/yo no se asume admin (fail-closed)
+        }
+        actualizarMenuAdmin();
+        ir(esAdmin ? 'admin' : 'home');
       } else {
         mostrarError(resultado.error);
       }
     });
 
-    // ---- Pedido de blanqueo de clave (POST /auth/olvido-clave) ----
+    // ---- Pedido de token (POST /auth/olvido-clave) ----
     const $btnOlvido = document.getElementById('btn-olvido');
     $btnOlvido.addEventListener('click', async () => {
       const ident = document.getElementById('input-olvido').value.trim();
       const $msg = document.getElementById('msg-error-olvido');
-      if (!ident) { $msg.textContent = 'Ingresá tu usuario, D.N.I. o correo'; return; }
+      if (!ident) { $msg.textContent = 'Ingresá tu usuario o correo'; return; }
       $msg.textContent = '';
       $btnOlvido.disabled = true;
       $btnOlvido.textContent = 'Enviando...';
@@ -1435,7 +1460,50 @@
         $msg.textContent = 'No se pudo conectar al backend. ¿Está corriendo el servidor en ' + API_BASE + '?';
       } finally {
         $btnOlvido.disabled = false;
-        $btnOlvido.textContent = 'Pedir blanqueo';
+        $btnOlvido.textContent = 'Enviar token';
+      }
+    });
+
+    // ---- Restablecer con token del correo (POST /auth/restablecer-clave) ----
+    const $btnRest = document.getElementById('btn-restablecer');
+    $btnRest.addEventListener('click', async () => {
+      const token = document.getElementById('input-token-rec').value.trim();
+      const nueva = document.getElementById('input-clave-nueva').value;
+      const repetir = document.getElementById('input-clave-repetir').value;
+      const $msg = document.getElementById('msg-error-rest');
+      $msg.style.color = 'var(--danger)';
+      $msg.textContent = '';
+      if (!token) { $msg.textContent = 'Pegá el token que llegó a tu correo'; return; }
+      if (!nueva || !repetir) { $msg.textContent = 'Completá las dos contraseñas'; return; }
+      if (nueva !== repetir) { $msg.textContent = 'Las contraseñas no coinciden'; return; }
+      if (nueva.length < 12) { $msg.textContent = 'La contraseña nueva tiene que tener al menos 12 caracteres'; return; }
+      $btnRest.disabled = true;
+      $btnRest.textContent = 'Restableciendo...';
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/auth/restablecer-clave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token, clave_nueva: nueva })
+        });
+        if (resp.status === 200) {
+          $msg.style.color = 'var(--brand)';
+          $msg.textContent = 'Contraseña restablecida ✓ Volvé al login con tu clave nueva.';
+          document.getElementById('input-token-rec').value = '';
+          document.getElementById('input-clave-nueva').value = '';
+          document.getElementById('input-clave-repetir').value = '';
+        } else if (resp.status === 401) {
+          $msg.textContent = 'El token no es válido o expiró. Pedí uno nuevo.';
+        } else if (resp.status === 422) {
+          const body = await resp.json().catch(() => ({}));
+          $msg.textContent = body.detail || 'Datos inválidos';
+        } else {
+          $msg.textContent = 'Error del servidor (' + resp.status + ')';
+        }
+      } catch (err) {
+        $msg.textContent = 'No se pudo conectar al backend. ¿Está corriendo el servidor en ' + API_BASE + '?';
+      } finally {
+        $btnRest.disabled = false;
+        $btnRest.textContent = 'Restablecer contraseña';
       }
     });
 
